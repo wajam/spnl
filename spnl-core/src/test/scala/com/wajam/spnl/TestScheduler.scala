@@ -46,8 +46,8 @@ class TestScheduler extends FunSuite with MockitoSugar {
     Thread.sleep(200)
 
     rate = 10000
-    Thread.sleep(700)
+    Thread.sleep(500)
 
-    verify(mockedTask, atLeast(5000)).tick()
+    verify(mockedTask, atLeast(2000)).tick()
   }
 }
