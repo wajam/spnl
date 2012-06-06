@@ -8,15 +8,15 @@ import java.util.concurrent.{TimeUnit, ScheduledThreadPoolExecutor}
  * rate.
  */
 class Scheduler {
-  val POOL_SIZE = 4;
+  val POOL_SIZE = 4
 
   val scheduledExecutor = new ScheduledThreadPoolExecutor(POOL_SIZE)
   val tasks = mutable.MutableList[ScheduledTask]()
 
-  class ScheduledTask(var realTask:Task, var lastRate:Int = 0, var run:Runnable = null)
+  class ScheduledTask(var realTask: Task, var lastRate: Int = 0, var run: TaskRunner = null)
 
 
-  def startTask(task:Task) {
+  def startTask(task: Task) {
     task.start()
 
     tasks synchronized {
@@ -24,35 +24,46 @@ class Scheduler {
     }
   }
 
-  def endTask(task:Task) {
+  def endTask(task: Task) {
     // TODO: implement
+  }
+
+  abstract class TaskRunner extends Runnable {
+    var done = false
   }
 
   // tasks rate checker
   scheduledExecutor.scheduleAtFixedRate(new Runnable {
     def run() {
-      var tasksCopy:Seq[ScheduledTask] = null
+      var tasksCopy: Seq[ScheduledTask] = null
       tasks.synchronized {
         tasksCopy = for (task <- tasks) yield task
       }
 
       for (task <- tasksCopy) {
-       if (task.realTask.rate != task.lastRate) {
-         if (task.run != null)
-           scheduledExecutor.remove(task.run)
+        val newRate = task.realTask.rate
+        if (newRate != task.lastRate) {
+          if (task.run != null) {
+            task.run.done = true
+            scheduledExecutor.remove(task.run)
+          }
 
-         task.run = new Runnable {
-           def run() {
-             task.realTask.tick()
-           }
-         }
+          task.run = new TaskRunner {
+            def run() {
+              if (done)
+                throw new InterruptedException()
 
-         val time = (1000000000f/int2float(task.realTask.rate)).toLong
-         scheduledExecutor.scheduleAtFixedRate(task.run, 0, time, TimeUnit.NANOSECONDS)
-         task.lastRate = task.realTask.rate
-       }
+              task.realTask.tick()
+            }
+          }
+
+          val time = scala.math.max((1000000000f / int2float(newRate)).toLong, 1)
+          scheduledExecutor.scheduleAtFixedRate(task.run, 0, time, TimeUnit.NANOSECONDS)
+
+          task.lastRate = newRate
+        }
       }
 
     }
-  }, 0, 100, TimeUnit.MILLISECONDS);
+  }, 0, 100, TimeUnit.MILLISECONDS)
 }

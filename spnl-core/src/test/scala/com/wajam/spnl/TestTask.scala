@@ -23,9 +23,9 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   }
 
   test("tick") {
-    when(mockedFeed.next()).thenReturn(Map("k" -> "val"))
+    when(mockedFeed.next()).thenReturn(Some(Map("k" -> "val")))
 
-    task.tick(true)
+    task.tick(sync=true)
     verify(mockedFeed).next()
     verify(mockedAction).call(anyObject())
   }

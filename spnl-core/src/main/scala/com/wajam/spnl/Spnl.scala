@@ -1,15 +1,14 @@
 package com.wajam.spnl
 
-import scala.collection.mutable
-
 /**
  * Spnl service. Handles feeder registry as well as tasks execution.
  */
-class Spnl {
-  var runningTasks = new mutable.LinkedList[Task]()
+class Spnl(val persistence: TaskPersistence) {
+  val scheduler = new Scheduler
 
   def run(task: Task) {
-    runningTasks :+= task
-    task.start()
+    persistence.loadTask(task)
+    task.init(persistence)
+    scheduler.startTask(task)
   }
 }
