@@ -4,6 +4,7 @@ import actors.Actor
 import com.wajam.nrv.service.Action
 import com.wajam.nrv.data.OutMessage
 import com.wajam.nrv.Logging
+import com.yammer.metrics.scala.Instrumented
 
 /**
  * Task taking data from a feeder and sending to remote action
@@ -11,7 +12,7 @@ import com.wajam.nrv.Logging
  * @param feeder Data source
  * @param action Action to call with new data
  */
-class Task(feeder: Feeder, action: Action, var lifetime: TaskLifetime = EPHEMERAL, var name: String = "", var context: TaskContext = new TaskContext) extends Logging {
+class Task(feeder: Feeder, action: Action, var lifetime: TaskLifetime = EPHEMERAL, var name: String = "", var context: TaskContext = new TaskContext) extends Logging with Instrumented {
   val PERSISTENCE_PERIOD = 1000 // if lifetime is persistent, save every 1000ms
 
   private var beforeThrottleRate = context.rate
@@ -19,6 +20,8 @@ class Task(feeder: Feeder, action: Action, var lifetime: TaskLifetime = EPHEMERA
 
   private var persistence: TaskPersistence = null
   private var lastPersistence:Long = 0
+
+  private lazy val tickMeter = metrics.meter("tick", "ticks", name)
 
   if (lifetime == PERSISTENT_GLOBAL && name.isEmpty)
     throw new UninitializedFieldError("A name should be provided for persistent tasks")
@@ -82,6 +85,8 @@ class Task(feeder: Feeder, action: Action, var lifetime: TaskLifetime = EPHEMERA
   }
 
   protected[spnl] def tick(sync: Boolean = false) {
+    this.tickMeter.mark()
+
     if (!sync)
       TaskActor ! Tick
     else
