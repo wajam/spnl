@@ -2,7 +2,6 @@ package com.wajam.spnl
 
 import actors.Actor
 import com.wajam.nrv.service.Action
-import com.wajam.nrv.data.OutMessage
 import com.wajam.nrv.Logging
 import com.yammer.metrics.scala.Instrumented
 
@@ -19,7 +18,7 @@ class Task(feeder: Feeder, action: Action, var lifetime: TaskLifetime = EPHEMERA
   private var throttling = false
 
   private var persistence: TaskPersistence = null
-  private var lastPersistence:Long = 0
+  private var lastPersistence: Long = 0
 
   private lazy val tickMeter = metrics.meter("tick", "ticks", name)
 
@@ -48,23 +47,34 @@ class Task(feeder: Feeder, action: Action, var lifetime: TaskLifetime = EPHEMERA
   private object Tick
 
   object TaskActor extends Actor {
+    def throttle() {
+      if (!throttling) {
+        beforeThrottleRate = context.rate
+        context.rate = context.throttleRate
+        throttling = true
+      }
+    }
+
+    def unthrottle() {
+      if (throttling) {
+        beforeThrottleRate = context.rate
+        context.rate = context.throttleRate
+        throttling = true
+      }
+    }
+
     def act() {
       while (true) {
         receive {
           case Tick =>
             try {
               val data = feeder.next()
+
               if (data.isDefined) {
-                throttling = false
-                context.rate = beforeThrottleRate
-                action.call(new OutMessage(data.get))
-
-              } else if (!throttling) {
-                beforeThrottleRate = context.rate
-                context.rate = context.throttleRate
-                throttling = true
+                unthrottle()
+              } else {
+                throttle()
               }
-
 
               // trigger persistence if we didn't been saved for PERSISTENCE_PERIOD ms
               val now = System.currentTimeMillis()
@@ -73,7 +83,11 @@ class Task(feeder: Feeder, action: Action, var lifetime: TaskLifetime = EPHEMERA
                 lastPersistence = now
               }
             } catch {
-              case e: Exception => error("Error calling next on task", e)
+              case e: Exception =>
+                error("Error calling next on task", e)
+
+                // We got an exception. Handle it like if we didn't have any data by throttling
+                throttle()
             }
             sender ! true
 
