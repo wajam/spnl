@@ -57,9 +57,8 @@ class Task(feeder: Feeder, action: Action, var lifetime: TaskLifetime = EPHEMERA
 
     def unthrottle() {
       if (throttling) {
-        beforeThrottleRate = context.rate
-        context.rate = context.throttleRate
-        throttling = true
+        context.rate = beforeThrottleRate
+        throttling = false
       }
     }
 
