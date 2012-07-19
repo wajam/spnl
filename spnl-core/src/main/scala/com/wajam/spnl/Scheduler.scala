@@ -41,7 +41,7 @@ class Scheduler {
       }
 
       for (task <- tasksCopy) {
-        val newRate = task.realTask.rate
+        val newRate = task.realTask.currentRate
         if (newRate != task.lastRate) {
           if (task.run != null) {
             task.run.done = true

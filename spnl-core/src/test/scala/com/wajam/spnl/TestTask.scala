@@ -7,6 +7,8 @@ import com.wajam.nrv.service.Action
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.scalatest.{BeforeAndAfter, FunSuite}
+import org.mockito.stubbing.Answer
+import org.mockito.invocation.InvocationOnMock
 
 @RunWith(classOf[JUnitRunner])
 class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
@@ -22,11 +24,41 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     task.start()
   }
 
-  test("tick") {
+  test("when a task is ticked, action is called when next value from feeder") {
     when(mockedFeed.next()).thenReturn(Some(Map("k" -> "val")))
 
-    task.tick(sync=true)
+    task.tick(sync = true)
     verify(mockedFeed).next()
     verify(mockedAction).call(anyObject())
+  }
+
+  test("when feeder returns no data or an exception, task should throttle") {
+    var feedNext: () => Option[Map[String, Any]] = null
+    when(mockedFeed.next()).then(new Answer[Option[Map[String, Any]]] {
+      def answer(invocation: InvocationOnMock) = feedNext()
+    })
+
+    task.context.normalRate = 10
+    task.context.throttleRate = 1
+
+    // feeder returns data
+    feedNext = () => Some(Map("k" -> "val"))
+    task.tick(true)
+    assert(!task.isThrottling)
+
+    // feeder returns no data
+    feedNext = () => None
+    task.tick(true)
+    assert(task.isThrottling)
+
+    // feeder returns data
+    feedNext = () => Some(Map("k" -> "val"))
+    task.tick(true)
+    assert(!task.isThrottling)
+
+    // feeder throws exception
+    feedNext = () => throw new Exception("testing")
+    task.tick(true)
+    assert(task.isThrottling)
   }
 }

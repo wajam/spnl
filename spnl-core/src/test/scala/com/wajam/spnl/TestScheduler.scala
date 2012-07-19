@@ -15,7 +15,7 @@ class TestScheduler extends FunSuite with MockitoSugar {
     val scheduler = new Scheduler
     val mockedTask = mock[Task]
 
-    when(mockedTask.rate).thenReturn(1000)
+    when(mockedTask.currentRate).thenReturn(1000)
     scheduler.startTask(mockedTask)
 
     Thread.sleep(200)
@@ -26,7 +26,7 @@ class TestScheduler extends FunSuite with MockitoSugar {
     val scheduler = new Scheduler
     val mockedTask = mock[Task]
 
-    when(mockedTask.rate).thenReturn(1)
+    when(mockedTask.currentRate).thenReturn(1)
     scheduler.startTask(mockedTask)
 
     Thread.sleep(200)
@@ -38,7 +38,7 @@ class TestScheduler extends FunSuite with MockitoSugar {
     val mockedTask = mock[Task]
 
     var rate = 100
-    when(mockedTask.rate).then(new Answer[Int] {
+    when(mockedTask.currentRate).then(new Answer[Int] {
       def answer(invocation: InvocationOnMock) = rate
     })
 
