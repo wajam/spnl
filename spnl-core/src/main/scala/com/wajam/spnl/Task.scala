@@ -2,9 +2,9 @@ package com.wajam.spnl
 
 import actors.Actor
 import com.wajam.nrv.service.Action
-import com.wajam.nrv.data.OutMessage
 import com.wajam.nrv.Logging
 import com.yammer.metrics.scala.Instrumented
+import com.wajam.nrv.data.OutMessage
 
 /**
  * Task taking data from a feeder and sending to remote action
@@ -12,21 +12,18 @@ import com.yammer.metrics.scala.Instrumented
  * @param feeder Data source
  * @param action Action to call with new data
  */
-class Task(feeder: Feeder, action: Action, var lifetime: TaskLifetime = EPHEMERAL, var name: String = "", var context: TaskContext = new TaskContext) extends Logging with Instrumented {
+class Task(feeder: Feeder, action: Action, val lifetime: TaskLifetime = EPHEMERAL, val name: String = "", var context: TaskContext = new TaskContext) extends Logging with Instrumented {
   val PERSISTENCE_PERIOD = 1000 // if lifetime is persistent, save every 1000ms
-
-  private var beforeThrottleRate = context.rate
-  private var throttling = false
-
-  private var persistence: TaskPersistence = null
-  private var lastPersistence:Long = 0
-
-  private lazy val tickMeter = metrics.meter("tick", "ticks", name)
 
   if (lifetime == PERSISTENT_GLOBAL && name.isEmpty)
     throw new UninitializedFieldError("A name should be provided for persistent tasks")
 
-  def rate = context.rate
+  private var persistence: TaskPersistence = null
+  private var lastPersistence: Long = 0
+  private lazy val tickMeter = metrics.meter("tick", "ticks", name)
+
+  @volatile
+  var currentRate = context.normalRate
 
   def init(persistence: TaskPersistence) {
     this.persistence = persistence
@@ -42,29 +39,28 @@ class Task(feeder: Feeder, action: Action, var lifetime: TaskLifetime = EPHEMERA
     TaskActor ! Kill
   }
 
+  def isThrottling = currentRate < context.normalRate
+
+
   // actions used by the task actor
   private object Kill
 
   private object Tick
 
   object TaskActor extends Actor {
+
     def act() {
-      while (true) {
-        receive {
+      loop {
+        react {
           case Tick =>
             try {
               val data = feeder.next()
               if (data.isDefined) {
-                throttling = false
-                context.rate = beforeThrottleRate
                 action.call(new OutMessage(data.get))
-
-              } else if (!throttling) {
-                beforeThrottleRate = context.rate
-                context.rate = context.throttleRate
-                throttling = true
+                currentRate = context.normalRate
+              } else {
+                currentRate = context.throttleRate
               }
-
 
               // trigger persistence if we didn't been saved for PERSISTENCE_PERIOD ms
               val now = System.currentTimeMillis()
@@ -73,7 +69,11 @@ class Task(feeder: Feeder, action: Action, var lifetime: TaskLifetime = EPHEMERA
                 lastPersistence = now
               }
             } catch {
-              case e: Exception => error("Error calling next on task", e)
+              case e: Exception =>
+                error("Caught an exception while executing the task", e)
+
+                // We got an exception. Handle it like if we didn't have any data by throttling
+                currentRate = context.throttleRate
             }
             sender ! true
 
