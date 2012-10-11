@@ -11,7 +11,7 @@ class Scheduler {
   val POOL_SIZE = 4
 
   val scheduledExecutor = new ScheduledThreadPoolExecutor(POOL_SIZE)
-  val tasks = mutable.MutableList[ScheduledTask]()
+  val tasks = mutable.ArrayBuffer[ScheduledTask]()
 
   class ScheduledTask(var realTask: Task, var lastRate: Int = 0, var run: TaskRunner = null)
 
@@ -25,7 +25,11 @@ class Scheduler {
   }
 
   def endTask(task: Task) {
-    // TODO: implement
+    tasks synchronized {
+      for (scheduledTask <- tasks.find(_.realTask == task)) {
+        tasks -= scheduledTask
+      }
+    }
   }
 
   abstract class TaskRunner extends Runnable {
