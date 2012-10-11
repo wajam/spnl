@@ -77,8 +77,10 @@ class Task(feeder: Feeder, action: Action, val lifetime: TaskLifetime = EPHEMERA
             }
             sender ! true
 
-          case Kill =>
-            throw new InterruptedException()
+          case Kill => {
+            info("Task {} killed", name)
+            exit()
+          }
         }
       }
     }
