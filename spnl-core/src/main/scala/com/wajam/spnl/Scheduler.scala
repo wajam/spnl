@@ -11,9 +11,16 @@ class Scheduler {
   val POOL_SIZE = 4
 
   val scheduledExecutor = new ScheduledThreadPoolExecutor(POOL_SIZE)
-  val tasks = mutable.ArrayBuffer[ScheduledTask]()
+  val tasks = mutable.Set[ScheduledTask]()
 
-  class ScheduledTask(var realTask: Task, var lastRate: Int = 0, var run: TaskRunner = null)
+  class ScheduledTask(var realTask: Task, var lastRate: Int = 0, var run: TaskRunner = null) {
+    override def hashCode() = 2 * realTask.hashCode()
+
+    override def equals(obj: Any) = obj match {
+      case st: ScheduledTask => this.realTask == st.realTask
+      case _ => false
+    }
+  }
 
 
   def startTask(task: Task) {
@@ -41,7 +48,7 @@ class Scheduler {
     def run() {
       var tasksCopy: Seq[ScheduledTask] = null
       tasks.synchronized {
-        tasksCopy = for (task <- tasks) yield task
+        tasksCopy = for (task <- tasks.toSeq) yield task
       }
 
       for (task <- tasksCopy) {

@@ -50,4 +50,23 @@ class TestScheduler extends FunSuite with MockitoSugar {
 
     verify(mockedTask, atLeast(2000)).tick()
   }
+
+  test("Same task added") {
+    val scheduler = new Scheduler
+    val mockedTask = mock[Task]
+
+    var rate = 100
+    when(mockedTask.currentRate).then(new Answer[Int] {
+      def answer(invocation: InvocationOnMock) = rate
+    })
+
+    scheduler.startTask(mockedTask)
+    scheduler.startTask(mockedTask)
+
+    assert(scheduler.tasks.size === 1)
+
+    scheduler.endTask(mockedTask)
+
+    assert(scheduler.tasks.size === 0)
+  }
 }
