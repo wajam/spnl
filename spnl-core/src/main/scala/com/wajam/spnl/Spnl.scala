@@ -11,4 +11,9 @@ class Spnl(val persistence: TaskPersistence) {
     task.init(persistence)
     scheduler.startTask(task)
   }
+
+  def stop(task: Task) {
+    scheduler.endTask(task)
+    task.kill()
+  }
 }
