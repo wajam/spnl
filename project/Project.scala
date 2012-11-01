@@ -12,6 +12,7 @@ object SpnlBuild extends Build {
     "Sun GF Maven2 Repo" at "http://download.java.net/maven/glassfish",
     "Oracle Maven2 Repo" at "http://download.oracle.com/maven",
     "Sonatype" at "http://oss.sonatype.org/content/repositories/release",
+    "Cloudera" at "https://repository.cloudera.com/artifactory/cloudera-repos/",
     "Wajam" at "http://ci1.is.wajam/"
   )
 
