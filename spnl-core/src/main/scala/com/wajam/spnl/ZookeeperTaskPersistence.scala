@@ -25,8 +25,11 @@ class ZookeeperTaskPersistence(zkClient: ZookeeperClient) extends TaskPersistenc
 
   def loadTask(task: Task) {
     if (task.lifetime == PERSISTENT_GLOBAL) {
-      val data = zkClient.get("/spnl/global/" + task.name)
-      unserializeTask(task, data)
+      val path = "/spnl/global/" + task.name
+      if (zkClient.exists(path)) {
+        val data = zkClient.get(path)
+        unserializeTask(task, data)
+      }
     }
   }
 
