@@ -3,7 +3,6 @@ package com.wajam.spnl
 import org.scalatest.junit.JUnitRunner
 import org.junit.runner.RunWith
 import org.scalatest.mock.MockitoSugar
-import com.wajam.nrv.service.Action
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.scalatest.{BeforeAndAfter, FunSuite}
@@ -13,12 +12,12 @@ import org.mockito.invocation.InvocationOnMock
 @RunWith(classOf[JUnitRunner])
 class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   var mockedFeed: Feeder = null
-  var mockedAction: Action = null
+  var mockedAction: TaskAction = null
   var task: Task = null
 
   before {
     mockedFeed = mock[Feeder]
-    mockedAction = mock[Action]
+    mockedAction = mock[TaskAction]
 
     task = new Task(mockedFeed, mockedAction)
     task.start()
@@ -29,7 +28,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
 
     task.tick(sync = true)
     verify(mockedFeed).next()
-    verify(mockedAction).call(anyObject())
+    verify(mockedAction).call(same(task), anyObject())
   }
 
   test("when feeder returns no data or an exception, task should throttle") {

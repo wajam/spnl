@@ -11,7 +11,7 @@ import com.wajam.nrv.service.Action
 class TestZookeeperTaskPersistence extends FunSuite with MockitoSugar {
   val zkPersistence = new ZookeeperTaskPersistence(new ZookeeperClient("127.0.0.1"))
   val mockFeeder = mock[Feeder]
-  val mockAction = mock[Action]
+  val mockAction = mock[TaskAction]
 
   test("should not save and load ephemeral task") {
     var task = new Task(mockFeeder, mockAction, lifetime = EPHEMERAL)
