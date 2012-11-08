@@ -1,6 +1,6 @@
 package com.wajam.spnl
 
-import com.wajam.nrv.cluster.zookeeper.ZookeeperClient
+import com.wajam.nrv.zookeeper.ZookeeperClient
 import com.wajam.nrv.protocol.codec.JavaSerializeCodec
 import com.wajam.nrv.Logging
 
@@ -10,15 +10,12 @@ import com.wajam.nrv.Logging
 class ZookeeperTaskPersistence(zkClient: ZookeeperClient) extends TaskPersistence with Logging {
   val serializer = new JavaSerializeCodec
 
-  zkClient.ensureExists("/spnl", "".getBytes)
-  zkClient.ensureExists("/spnl/global", "".getBytes)
-
   def saveTask(task: Task) {
     if (task.lifetime == PERSISTENT_GLOBAL) {
       val path = "/spnl/global/" + task.name
       val data = serializeTask(task)
 
-      zkClient.ensureExists(path, data)
+      zkClient.ensureAllExists(path, data)
       zkClient.set(path, data)
     }
   }
