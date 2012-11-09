@@ -3,13 +3,13 @@ package com.wajam.spnl
 import org.scalatest.FunSuite
 import org.scalatest.junit.JUnitRunner
 import org.junit.runner.RunWith
-import com.wajam.nrv.cluster.zookeeper.ZookeeperClient
+import com.wajam.nrv.zookeeper.ZookeeperClient
 import org.scalatest.mock.MockitoSugar
 import com.wajam.nrv.service.Action
 
 @RunWith(classOf[JUnitRunner])
 class TestZookeeperTaskPersistence extends FunSuite with MockitoSugar {
-  val zkPersistence = new ZookeeperTaskPersistence(new ZookeeperClient("127.0.0.1"))
+  val zkPersistence = new ZookeeperTaskPersistence(new ZookeeperClient("127.0.0.1/tests"))
   val mockFeeder = mock[Feeder]
   val mockAction = mock[TaskAction]
 
