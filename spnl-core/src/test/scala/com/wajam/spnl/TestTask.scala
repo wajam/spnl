@@ -28,7 +28,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
 
     task.tick(sync = true)
     verify(mockedFeed).next()
-    verify(mockedAction).call(same(task), anyObject())
+    verify(mockedAction).call(same(task), anyObject(), anyInt())
   }
 
   test("when feeder returns no data or an exception, task should throttle") {

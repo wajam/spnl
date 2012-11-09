@@ -17,12 +17,16 @@ class TaskAction(val path: ActionPath,
     this(path, impl, new Action(path, (msg) => impl(new SpnlRequest(msg))))
   }
 
-  protected[spnl] def callback(task: Task, data: Map[String, Any])
+  protected[spnl] def processActionResult(task: Task, data: Map[String, Any], retriesLeft: Int)
                               (msg: InMessage, optException: Option[Exception]) {
     optException match {
       case Some(SpnlThrottleAndRetryException) => {
         task.currentRate = task.context.throttleRate
-        call(task, data)
+        if (retriesLeft > 0) {
+          call(task, data, retriesLeft)
+        } else {
+          task.kill()
+        }
       }
       case Some(SpnlKillException) => {
         task.kill()
@@ -35,8 +39,8 @@ class TaskAction(val path: ActionPath,
     }
   }
 
-  protected[spnl] def call(task: Task, data: Map[String, Any]) {
-    action.call(data.toIterable, callback(task, data))
+  protected[spnl] def call(task: Task, data: Map[String, Any], retries: Int = 5) {
+    action.call(data.toIterable, processActionResult(task, data, retries - 1))
   }
 
 }
@@ -51,7 +55,7 @@ class SpnlRequest(val message: InMessage) extends Logging {
   private val path = message.path
 
   def ok() {
-    trace("Success for path {}", path)
+    log.trace("Success for path {}", path)
     message.reply(Map("status" -> "ok"))
   }
 

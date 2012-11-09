@@ -23,19 +23,25 @@ class TestTaskAction extends FunSuite with MockitoSugar with OneInstancePerTest 
   val msg = mock[InMessage]
 
   test("should kill task when callback has SpnlKillException") {
-    taskAction.callback(task, Map())(msg, Some(SpnlKillException))
+    taskAction.processActionResult(task, Map(), 1)(msg, Some(SpnlKillException))
     verify(task).kill()
     verify(action, never()).call(any(), any(), any(), any(), anyLong())
   }
 
   test("should retry task when callback has SpnlThrottleAndRetryException") {
-    taskAction.callback(task, Map())(msg, Some(SpnlThrottleAndRetryException))
+    taskAction.processActionResult(task, Map(), 1)(msg, Some(SpnlThrottleAndRetryException))
     verify(task, never()).kill()
     verify(action).call(any(), any(), any(), any(), anyLong())
   }
 
+  test("should kill task when callback has SpnlThrottleAndRetryException and no retries are left") {
+    taskAction.processActionResult(task, Map(), 0)(msg, Some(SpnlThrottleAndRetryException))
+    verify(task).kill()
+    verify(action, never()).call(any(), any(), any(), any(), anyLong())
+  }
+
   test("should do nothing if no exception returned") {
-    taskAction.callback(task, Map())(msg, None)
+    taskAction.processActionResult(task, Map(), 1)(msg, None)
     verify(task, never()).kill()
     verify(action, never()).call(any(), any(), any(), any(), anyLong())
   }
