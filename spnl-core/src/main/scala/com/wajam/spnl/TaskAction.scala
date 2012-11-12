@@ -3,6 +3,8 @@ package com.wajam.spnl
 import com.wajam.nrv.service.{ActionPath, Action}
 import com.wajam.nrv.data.InMessage
 import com.wajam.nrv.Logging
+import scala.concurrent._
+import com.wajam.nrv.utils.Future
 
 /**
  * User: Alexandre Bergeron <alex@wajam.com>
@@ -11,7 +13,8 @@ import com.wajam.nrv.Logging
  */
 class TaskAction(val path: ActionPath,
                  impl: SpnlRequest => Unit,
-                 val action: Action) extends Logging {
+                 val action: Action,
+                 blocking: Boolean = true) extends Logging {
 
   def this(path: ActionPath, impl: SpnlRequest => Unit) = {
     this(path, impl, new Action(path, (msg) => impl(new SpnlRequest(msg))))
@@ -40,7 +43,13 @@ class TaskAction(val path: ActionPath,
   }
 
   protected[spnl] def call(task: Task, data: Map[String, Any], retries: Int = 5) {
-    action.call(data.toIterable, processActionResult(task, data, retries - 1))
+    val callback: (InMessage, Option[Exception]) => Unit = processActionResult(task, data, retries - 1)
+    if (blocking) {
+      val msg = Future.blocking(action.call(data.toIterable, null, null, action.defaultResponseTimeout), 0)
+      callback(msg, msg.error)
+    } else {
+      action.call(data.toIterable, callback)
+    }
   }
 
 }
