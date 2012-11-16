@@ -12,7 +12,7 @@ import com.wajam.nrv.data.OutMessage
  * @param feeder Data source
  * @param action Action to call with new data
  */
-class Task(feeder: Feeder, action: Action, val lifetime: TaskLifetime = EPHEMERAL, val name: String = "", var context: TaskContext = new TaskContext) extends Logging with Instrumented {
+class Task(feeder: Feeder, val action: TaskAction, val lifetime: TaskLifetime = EPHEMERAL, val name: String = "", var context: TaskContext = new TaskContext) extends Logging with Instrumented {
   val PERSISTENCE_PERIOD = 1000 // if lifetime is persistent, save every 1000ms
 
   if (lifetime == PERSISTENT_GLOBAL && name.isEmpty)
@@ -56,7 +56,7 @@ class Task(feeder: Feeder, action: Action, val lifetime: TaskLifetime = EPHEMERA
             try {
               val data = feeder.next()
               if (data.isDefined) {
-                action.call(new OutMessage(data.get))
+                action.call(Task.this, data.get)
                 currentRate = context.normalRate
               } else {
                 currentRate = context.throttleRate
