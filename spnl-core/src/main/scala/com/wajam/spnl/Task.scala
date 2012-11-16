@@ -5,6 +5,7 @@ import com.wajam.nrv.service.Action
 import com.wajam.nrv.Logging
 import com.yammer.metrics.scala.Instrumented
 import com.wajam.nrv.data.OutMessage
+import feeder.Feeder
 
 /**
  * Task taking data from a feeder and sending to remote action

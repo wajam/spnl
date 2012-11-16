@@ -1,5 +1,6 @@
 package com.wajam.spnl
 
+import feeder.Feeder
 import org.scalatest.junit.JUnitRunner
 import org.junit.runner.RunWith
 import org.scalatest.mock.MockitoSugar
