@@ -25,16 +25,17 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   }
 
   test("when a task is ticked, action is called when next value from feeder") {
-    when(mockedFeed.next()).thenReturn(Some(Map("k" -> "val")))
+    when(mockedFeed.peek()).thenReturn(Some(Map("k" -> "val")))
 
     task.tick(sync = true)
+    verify(mockedFeed).peek()
     verify(mockedFeed).next()
     verify(mockedAction).call(same(task), anyObject(), anyInt())
   }
 
   test("when feeder returns no data or an exception, task should throttle") {
     var feedNext: () => Option[Map[String, Any]] = null
-    when(mockedFeed.next()).then(new Answer[Option[Map[String, Any]]] {
+    when(mockedFeed.peek()).then(new Answer[Option[Map[String, Any]]] {
       def answer(invocation: InvocationOnMock) = feedNext()
     })
 

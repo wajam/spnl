@@ -1,10 +1,8 @@
 package com.wajam.spnl
 
 import actors.Actor
-import com.wajam.nrv.service.Action
 import com.wajam.nrv.Logging
 import com.yammer.metrics.scala.Instrumented
-import com.wajam.nrv.data.OutMessage
 import feeder.Feeder
 
 /**
@@ -48,19 +46,25 @@ class Task(feeder: Feeder, val action: TaskAction, val lifetime: TaskLifetime = 
 
   private object Tick
 
+  private case class Tock(data: Map[String, Any])
+
   object TaskActor extends Actor {
 
     def act() {
       loop {
         react {
-          case Tick =>
+          case Tick => {
             try {
-              val data = feeder.next()
-              if (data.isDefined) {
-                action.call(Task.this, data.get)
-                currentRate = context.normalRate
-              } else {
-                currentRate = context.throttleRate
+              feeder.peek() match {
+                case Some(data) => {
+                  //TODO check if we can execute job with current token
+                  feeder.next()
+                  action.call(Task.this, data)
+                  currentRate = context.normalRate
+                }
+                case None => {
+                  currentRate = context.throttleRate
+                }
               }
 
               // trigger persistence if we didn't been saved for PERSISTENCE_PERIOD ms
@@ -77,10 +81,14 @@ class Task(feeder: Feeder, val action: TaskAction, val lifetime: TaskLifetime = 
                 currentRate = context.throttleRate
             }
             sender ! true
-
+          }
           case Kill => {
             info("Task {} killed", name)
             exit()
+          }
+          case Tock(data) => for (token <- data.get("token")) {
+            trace("Task finished for token {}", token)
+            //TODO free token
           }
         }
       }
