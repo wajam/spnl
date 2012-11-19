@@ -42,4 +42,9 @@ class TestZookeeperTaskPersistence extends FunSuite with MockitoSugar {
     assert("value".equals(task.context.data.get("test").get))
   }
 
+  test("should not throw an exception when loading unexistant data") {
+    val task = new Task(mockFeeder, mockAction, lifetime = PERSISTENT_GLOBAL, name = "ittest_unset")
+    zkPersistence.loadTask(task)
+    assert(task.context.data.get("test").isEmpty)
+  }
 }
