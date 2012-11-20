@@ -12,16 +12,18 @@ abstract class CachedDataFeeder extends Feeder {
 
   var cache: Queue[Map[String, Any]] = Queue()
 
-  def peek() = if (cache.isEmpty) {
-    cache enqueue loadMore()
-    None
-  } else {
-    Some(cache.head)
+  def peek() = {
+    if (cache.isEmpty) {
+      cache = cache ++ loadMore()
+      None
+    } else {
+      Some(cache.head)
+    }
   }
 
   def next() = {
     if (cache.isEmpty) {
-      cache enqueue loadMore()
+      cache = cache ++ loadMore()
       None
     } else {
       val (elem, rest) = cache.dequeue

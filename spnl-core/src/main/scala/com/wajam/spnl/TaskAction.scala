@@ -35,7 +35,7 @@ class TaskAction(val path: ActionPath,
         log.error("Unmanaged exception occured in implementation of task {}", path, unknownException)
         task.kill()
       }
-      case None =>
+      case None => task.tock(data)
     }
   }
 

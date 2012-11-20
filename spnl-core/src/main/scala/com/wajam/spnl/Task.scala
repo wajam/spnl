@@ -38,6 +38,10 @@ class Task(feeder: Feeder, val action: TaskAction, val lifetime: TaskLifetime = 
     TaskActor ! Kill
   }
 
+  def tock(data: Map[String, Any]) {
+    TaskActor ! Tock(data)
+  }
+
   def isThrottling = currentRate < context.normalRate
 
 
