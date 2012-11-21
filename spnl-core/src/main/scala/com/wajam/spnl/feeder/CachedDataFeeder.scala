@@ -14,7 +14,7 @@ abstract class CachedDataFeeder extends Feeder {
 
   def peek() = {
     if (cache.isEmpty) {
-      cache = cache ++ loadMore()
+      cache ++= loadMore()
       None
     } else {
       Some(cache.head)
@@ -23,7 +23,7 @@ abstract class CachedDataFeeder extends Feeder {
 
   def next() = {
     if (cache.isEmpty) {
-      cache = cache ++ loadMore()
+      cache ++= loadMore()
       None
     } else {
       val (elem, rest) = cache.dequeue

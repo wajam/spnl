@@ -90,9 +90,12 @@ class Task(feeder: Feeder, val action: TaskAction, val lifetime: TaskLifetime = 
             info("Task {} killed", name)
             exit()
           }
-          case Tock(data) => for (token <- data.get("token")) {
-            trace("Task finished for token {}", token)
-            //TODO free token
+          case Tock(data) => {
+            for (token <- data.get("token")) {
+              trace("Task finished for token {}", token)
+              //TODO free token
+            }
+            feeder.ack(data)
           }
         }
       }

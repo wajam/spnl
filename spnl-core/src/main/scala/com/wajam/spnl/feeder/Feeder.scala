@@ -12,5 +12,7 @@ trait Feeder {
 
   def next(): Option[Map[String, Any]]
 
+  def ack(data: Map[String, Any])
+
   def kill()
 }
