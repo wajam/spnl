@@ -1,9 +1,9 @@
 package com.wajam.spnl
 
+import feeder.Feeder
 import org.scalatest.junit.JUnitRunner
 import org.junit.runner.RunWith
 import org.scalatest.mock.MockitoSugar
-import com.wajam.nrv.service.Action
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.scalatest.{BeforeAndAfter, FunSuite}
@@ -13,28 +13,29 @@ import org.mockito.invocation.InvocationOnMock
 @RunWith(classOf[JUnitRunner])
 class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   var mockedFeed: Feeder = null
-  var mockedAction: Action = null
+  var mockedAction: TaskAction = null
   var task: Task = null
 
   before {
     mockedFeed = mock[Feeder]
-    mockedAction = mock[Action]
+    mockedAction = mock[TaskAction]
 
     task = new Task(mockedFeed, mockedAction)
     task.start()
   }
 
   test("when a task is ticked, action is called when next value from feeder") {
-    when(mockedFeed.next()).thenReturn(Some(Map("k" -> "val")))
+    when(mockedFeed.peek()).thenReturn(Some(Map("k" -> "val")))
 
     task.tick(sync = true)
+    verify(mockedFeed).peek()
     verify(mockedFeed).next()
-    verify(mockedAction).call(anyObject())
+    verify(mockedAction).call(same(task), anyObject(), anyInt())
   }
 
   test("when feeder returns no data or an exception, task should throttle") {
     var feedNext: () => Option[Map[String, Any]] = null
-    when(mockedFeed.next()).then(new Answer[Option[Map[String, Any]]] {
+    when(mockedFeed.peek()).then(new Answer[Option[Map[String, Any]]] {
       def answer(invocation: InvocationOnMock) = feedNext()
     })
 
@@ -60,5 +61,26 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     feedNext = () => throw new Exception("testing")
     task.tick(true)
     assert(task.isThrottling)
+  }
+
+  test("when feeder gives tokens, should not process two tasks with same token") {
+    val data = Map("token" -> "asdf")
+    val feedNext: () => Option[Map[String, Any]] = () => Some(data)
+    when(mockedFeed.peek()).then(new Answer[Option[Map[String, Any]]] {
+      def answer(invocation: InvocationOnMock) = feedNext()
+    })
+
+    task.context.normalRate = 10
+    task.context.throttleRate = 1
+
+    task.tick(true)
+    assert(!task.isThrottling)
+
+    task.tick(true)
+    assert(task.isThrottling)
+
+    task.tock(data)
+    task.tick(true)
+    assert(!task.isThrottling)
   }
 }

@@ -1,10 +1,9 @@
 package com.wajam.spnl
 
 import actors.Actor
-import com.wajam.nrv.service.Action
 import com.wajam.nrv.Logging
 import com.yammer.metrics.scala.Instrumented
-import com.wajam.nrv.data.OutMessage
+import feeder.Feeder
 
 /**
  * Task taking data from a feeder and sending to remote action
@@ -12,7 +11,7 @@ import com.wajam.nrv.data.OutMessage
  * @param feeder Data source
  * @param action Action to call with new data
  */
-class Task(feeder: Feeder, action: Action, val lifetime: TaskLifetime = EPHEMERAL, val name: String = "", var context: TaskContext = new TaskContext) extends Logging with Instrumented {
+class Task(feeder: Feeder, val action: TaskAction, val lifetime: TaskLifetime = EPHEMERAL, val name: String = "", var context: TaskContext = new TaskContext) extends Logging with Instrumented {
   val PERSISTENCE_PERIOD = 1000 // if lifetime is persistent, save every 1000ms
 
   if (lifetime == PERSISTENT_GLOBAL && name.isEmpty)
@@ -24,6 +23,8 @@ class Task(feeder: Feeder, action: Action, val lifetime: TaskLifetime = EPHEMERA
 
   @volatile
   var currentRate = context.normalRate
+
+  private var currentTokens: Set[String] = Set()
 
   def init(persistence: TaskPersistence) {
     this.persistence = persistence
@@ -39,6 +40,10 @@ class Task(feeder: Feeder, action: Action, val lifetime: TaskLifetime = EPHEMERA
     TaskActor ! Kill
   }
 
+  def tock(data: Map[String, Any]) {
+    TaskActor ! Tock(data)
+  }
+
   def isThrottling = currentRate < context.normalRate
 
 
@@ -47,19 +52,40 @@ class Task(feeder: Feeder, action: Action, val lifetime: TaskLifetime = EPHEMERA
 
   private object Tick
 
+  private case class Tock(data: Map[String, Any])
+
   object TaskActor extends Actor {
 
     def act() {
       loop {
         react {
-          case Tick =>
+          case Tick => {
             try {
-              val data = feeder.next()
-              if (data.isDefined) {
-                action.call(new OutMessage(data.get))
-                currentRate = context.normalRate
-              } else {
-                currentRate = context.throttleRate
+              feeder.peek() match {
+                case Some(data) => {
+
+                  def execute() {
+                    feeder.next()
+                    action.call(Task.this, data)
+                    currentRate = context.normalRate
+                  }
+
+                  data.get("token") match {
+                    case Some(token: String) if currentTokens.contains(token) => {
+                      currentRate = context.throttleRate
+                    }
+                    case Some(token: String) => {
+                      currentTokens += token
+                      execute()
+                    }
+                    case None => {
+                      execute()
+                    }
+                  }
+                }
+                case None => {
+                  currentRate = context.throttleRate
+                }
               }
 
               // trigger persistence if we didn't been saved for PERSISTENCE_PERIOD ms
@@ -76,10 +102,20 @@ class Task(feeder: Feeder, action: Action, val lifetime: TaskLifetime = EPHEMERA
                 currentRate = context.throttleRate
             }
             sender ! true
-
+          }
           case Kill => {
             info("Task {} killed", name)
             exit()
+          }
+          case Tock(data) => {
+            data.get("token") match {
+              case Some(token: String) => {
+                trace("Task finished for token {}", token)
+                currentTokens -= token
+              }
+              case None =>
+            }
+            feeder.ack(data)
           }
         }
       }
