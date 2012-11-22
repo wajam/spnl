@@ -18,7 +18,7 @@ class TaskAction(val path: ActionPath,
   }
 
   protected[spnl] def processActionResult(task: Task, data: Map[String, Any], retriesLeft: Int)
-                              (msg: InMessage, optException: Option[Exception]) {
+                                         (msg: InMessage, optException: Option[Exception]) {
     optException match {
       case Some(SpnlThrottleAndRetryException) => {
         task.currentRate = task.context.throttleRate

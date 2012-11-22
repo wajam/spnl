@@ -62,4 +62,25 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     task.tick(true)
     assert(task.isThrottling)
   }
+
+  test("when feeder gives tokens, should not process two tasks with same token") {
+    val data = Map("token" -> "asdf")
+    val feedNext: () => Option[Map[String, Any]] = () => Some(data)
+    when(mockedFeed.peek()).then(new Answer[Option[Map[String, Any]]] {
+      def answer(invocation: InvocationOnMock) = feedNext()
+    })
+
+    task.context.normalRate = 10
+    task.context.throttleRate = 1
+
+    task.tick(true)
+    assert(!task.isThrottling)
+
+    task.tick(true)
+    assert(task.isThrottling)
+
+    task.tock(data)
+    task.tick(true)
+    assert(!task.isThrottling)
+  }
 }

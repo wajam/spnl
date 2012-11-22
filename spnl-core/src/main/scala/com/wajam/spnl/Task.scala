@@ -24,6 +24,8 @@ class Task(feeder: Feeder, val action: TaskAction, val lifetime: TaskLifetime = 
   @volatile
   var currentRate = context.normalRate
 
+  private var currentTokens: Set[String] = Set()
+
   def init(persistence: TaskPersistence) {
     this.persistence = persistence
   }
@@ -61,10 +63,25 @@ class Task(feeder: Feeder, val action: TaskAction, val lifetime: TaskLifetime = 
             try {
               feeder.peek() match {
                 case Some(data) => {
-                  //TODO check if we can execute job with current token
-                  feeder.next()
-                  action.call(Task.this, data)
-                  currentRate = context.normalRate
+
+                  def execute() {
+                    feeder.next()
+                    action.call(Task.this, data)
+                    currentRate = context.normalRate
+                  }
+
+                  data.get("token") match {
+                    case Some(token: String) if currentTokens.contains(token) => {
+                      currentRate = context.throttleRate
+                    }
+                    case Some(token: String) => {
+                      currentTokens += token
+                      execute()
+                    }
+                    case None => {
+                      execute()
+                    }
+                  }
                 }
                 case None => {
                   currentRate = context.throttleRate
@@ -91,9 +108,12 @@ class Task(feeder: Feeder, val action: TaskAction, val lifetime: TaskLifetime = 
             exit()
           }
           case Tock(data) => {
-            for (token <- data.get("token")) {
-              trace("Task finished for token {}", token)
-              //TODO free token
+            data.get("token") match {
+              case Some(token: String) => {
+                trace("Task finished for token {}", token)
+                currentTokens -= token
+              }
+              case None =>
             }
             feeder.ack(data)
           }
