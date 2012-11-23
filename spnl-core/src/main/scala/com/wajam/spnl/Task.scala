@@ -11,7 +11,10 @@ import feeder.Feeder
  * @param feeder Data source
  * @param action Action to call with new data
  */
-class Task(feeder: Feeder, val action: TaskAction, val lifetime: TaskLifetime = EPHEMERAL, val name: String = "", var context: TaskContext = new TaskContext) extends Logging with Instrumented {
+class Task(feeder: Feeder, val action: TaskAction, val lifetime: TaskLifetime = EPHEMERAL, val name: String = "",
+           var context: TaskContext = new TaskContext, acceptor: TaskAcceptor = new TaskAcceptor)
+  extends Logging with Instrumented {
+
   val PERSISTENCE_PERIOD = 1000 // if lifetime is persistent, save every 1000ms
 
   if (lifetime == PERSISTENT_GLOBAL && name.isEmpty)
@@ -70,16 +73,18 @@ class Task(feeder: Feeder, val action: TaskAction, val lifetime: TaskLifetime = 
                     currentRate = context.normalRate
                   }
 
-                  data.get("token") match {
-                    case Some(token: String) if currentTokens.contains(token) => {
-                      currentRate = context.throttleRate
-                    }
-                    case Some(token: String) => {
-                      currentTokens += token
-                      execute()
-                    }
-                    case None => {
-                      execute()
+                  if (acceptor.accept(data)) {
+                    data.get("token") match {
+                      case Some(token: String) if currentTokens.contains(token) => {
+                        currentRate = context.throttleRate
+                      }
+                      case Some(token: String) => {
+                        currentTokens += token
+                        execute()
+                      }
+                      case None => {
+                        execute()
+                      }
                     }
                   }
                 }
