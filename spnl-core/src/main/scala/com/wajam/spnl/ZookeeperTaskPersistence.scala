@@ -4,27 +4,26 @@ import com.wajam.nrv.zookeeper.ZookeeperClient
 import com.wajam.nrv.zookeeper.ZookeeperClient._
 import com.wajam.nrv.protocol.codec.JavaSerializeCodec
 import com.wajam.nrv.Logging
+import com.wajam.nrv.service.{ServiceMember, Service}
+import com.wajam.nrv.zookeeper.service.ZookeeperService
 
 /**
  * Task persistence that saves job states into zookeeper
  */
-class ZookeeperTaskPersistence(zkClient: ZookeeperClient) extends TaskPersistence with Logging {
-  val serializer = new JavaSerializeCodec
+class ZookeeperTaskPersistence(zkClient: ZookeeperClient, service: Service, member: ServiceMember)
+  extends TaskPersistence with Logging {
 
   def saveTask(task: Task) {
-    if (task.lifetime == PERSISTENT_GLOBAL) {
-      val path = "/spnl/global/" + task.name
-      val data = task.context.toJson
+    val path = ZookeeperTaskPersistence.serviceMemberPath(service, member, task.name)
+    val data = task.context.toJson
 
-      zkClient.ensureAllExists(path, data)
-      zkClient.set(path, data)
-    }
+    zkClient.ensureAllExists(path, data)
+    zkClient.set(path, data)
   }
 
   def loadTask(task: Task) {
-    //TODO make Manuel and APP happy by fixing paths.
-    val path = "/spnl/global/" + task.name
-    if (task.lifetime == PERSISTENT_GLOBAL && zkClient.exists(path)) {
+    val path = ZookeeperTaskPersistence.serviceMemberPath(service, member, task.name)
+    if (zkClient.exists(path)) {
       val data = zkClient.getString(path)
       try {
         task.context = TaskContext.fromJson(data)
@@ -32,5 +31,17 @@ class ZookeeperTaskPersistence(zkClient: ZookeeperClient) extends TaskPersistenc
         case e: Exception => warn("Couldn't unserialize task {} from zookeeper", task.name, e)
       }
     }
+  }
+}
+
+object ZookeeperTaskPersistence {
+  def serviceMemberPath(service: Service, member: ServiceMember, taskName: String) = {
+    ZookeeperService.memberDataPath(service.name, member.token) + "/spnl/" + taskName
+  }
+}
+
+class ZookeeperTaskPersistenceFactory(zkClient: ZookeeperClient) extends TaskPersistenceFactory {
+  def createServiceMemberPersistence(service: Service, member: ServiceMember) = {
+    new ZookeeperTaskPersistence(zkClient, service, member)
   }
 }

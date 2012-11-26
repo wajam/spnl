@@ -11,16 +11,15 @@ import feeder.Feeder
  * @param feeder Data source
  * @param action Action to call with new data
  */
-class Task(feeder: Feeder, val action: TaskAction, val lifetime: TaskLifetime = EPHEMERAL, val name: String = "",
+class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersistence = new NoTaskPersistence, val name: String = "",
            var context: TaskContext = new TaskContext, acceptor: TaskAcceptor = new TaskAcceptor)
   extends Logging with Instrumented {
 
   val PERSISTENCE_PERIOD = 1000 // if lifetime is persistent, save every 1000ms
 
-  if (lifetime == PERSISTENT_GLOBAL && name.isEmpty)
+  if (!persistence.isInstanceOf[NoTaskPersistence] && name.isEmpty)
     throw new UninitializedFieldError("A name should be provided for persistent tasks")
 
-  private var persistence: TaskPersistence = null
   private var lastPersistence: Long = 0
   private lazy val tickMeter = metrics.meter("tick", "ticks", name)
 
@@ -28,10 +27,6 @@ class Task(feeder: Feeder, val action: TaskAction, val lifetime: TaskLifetime = 
   var currentRate = context.normalRate
 
   private var currentTokens: Set[String] = Set()
-
-  def init(persistence: TaskPersistence) {
-    this.persistence = persistence
-  }
 
   def start() {
     this.feeder.init(this.context)
@@ -95,7 +90,7 @@ class Task(feeder: Feeder, val action: TaskAction, val lifetime: TaskLifetime = 
 
               // trigger persistence if we didn't been saved for PERSISTENCE_PERIOD ms
               val now = System.currentTimeMillis()
-              if (lifetime == PERSISTENT_GLOBAL && (now - lastPersistence) >= PERSISTENCE_PERIOD) {
+              if (now - lastPersistence >= PERSISTENCE_PERIOD) {
                 persistence.saveTask(Task.this)
                 lastPersistence = now
               }
@@ -137,9 +132,4 @@ class Task(feeder: Feeder, val action: TaskAction, val lifetime: TaskLifetime = 
   }
 }
 
-abstract class TaskLifetime
-
-object EPHEMERAL extends TaskLifetime
-
-object PERSISTENT_GLOBAL extends TaskLifetime
 
