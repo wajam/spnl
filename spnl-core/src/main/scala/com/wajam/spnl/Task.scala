@@ -4,6 +4,7 @@ import actors.Actor
 import com.wajam.nrv.Logging
 import com.yammer.metrics.scala.Instrumented
 import feeder.Feeder
+import util.Random
 
 /**
  * Task taking data from a feeder and sending to remote action
@@ -15,12 +16,13 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
            var context: TaskContext = new TaskContext, acceptor: TaskAcceptor = new TaskAcceptor)
   extends Logging with Instrumented {
 
-  val PERSISTENCE_PERIOD = 1000 // if lifetime is persistent, save every 1000ms
+  val PERSISTENCE_PERIOD = 10000
 
   if (!persistence.isInstanceOf[NoTaskPersistence] && name.isEmpty)
     throw new UninitializedFieldError("A name should be provided for persistent tasks")
 
-  private var lastPersistence: Long = 0
+  // Distribute in time persistence between tasks
+  private var lastPersistence: Long = System.currentTimeMillis() - Random.nextInt(PERSISTENCE_PERIOD)
   private lazy val tickMeter = metrics.meter("tick", "ticks", name)
 
   @volatile
