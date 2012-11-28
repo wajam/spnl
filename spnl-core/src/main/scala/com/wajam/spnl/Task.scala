@@ -4,6 +4,7 @@ import actors.Actor
 import com.wajam.nrv.Logging
 import com.yammer.metrics.scala.Instrumented
 import feeder.Feeder
+import util.Random
 
 /**
  * Task taking data from a feeder and sending to remote action
@@ -11,24 +12,23 @@ import feeder.Feeder
  * @param feeder Data source
  * @param action Action to call with new data
  */
-class Task(feeder: Feeder, val action: TaskAction, val lifetime: TaskLifetime = EPHEMERAL, val name: String = "", var context: TaskContext = new TaskContext) extends Logging with Instrumented {
-  val PERSISTENCE_PERIOD = 1000 // if lifetime is persistent, save every 1000ms
+class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersistence = NoTaskPersistence, val name: String = "",
+           var context: TaskContext = new TaskContext, acceptor: TaskAcceptor = new AcceptAllTaskAcceptor)
+  extends Logging with Instrumented {
 
-  if (lifetime == PERSISTENT_GLOBAL && name.isEmpty)
+  val PERSISTENCE_PERIOD = 10000
+
+  if (persistence != NoTaskPersistence && name.isEmpty)
     throw new UninitializedFieldError("A name should be provided for persistent tasks")
 
-  private var persistence: TaskPersistence = null
-  private var lastPersistence: Long = 0
+  // Distribute in time persistence between tasks
+  private var lastPersistence: Long = System.currentTimeMillis() - Random.nextInt(PERSISTENCE_PERIOD)
   private lazy val tickMeter = metrics.meter("tick", "ticks", name)
 
   @volatile
   var currentRate = context.normalRate
 
   private var currentTokens: Set[String] = Set()
-
-  def init(persistence: TaskPersistence) {
-    this.persistence = persistence
-  }
 
   def start() {
     this.feeder.init(this.context)
@@ -70,16 +70,18 @@ class Task(feeder: Feeder, val action: TaskAction, val lifetime: TaskLifetime = 
                     currentRate = context.normalRate
                   }
 
-                  data.get("token") match {
-                    case Some(token: String) if currentTokens.contains(token) => {
-                      currentRate = context.throttleRate
-                    }
-                    case Some(token: String) => {
-                      currentTokens += token
-                      execute()
-                    }
-                    case None => {
-                      execute()
+                  if (acceptor.accept(data)) {
+                    data.get("token") match {
+                      case Some(token: String) if currentTokens.contains(token) => {
+                        currentRate = context.throttleRate
+                      }
+                      case Some(token: String) => {
+                        currentTokens += token
+                        execute()
+                      }
+                      case None => {
+                        execute()
+                      }
                     }
                   }
                 }
@@ -90,7 +92,7 @@ class Task(feeder: Feeder, val action: TaskAction, val lifetime: TaskLifetime = 
 
               // trigger persistence if we didn't been saved for PERSISTENCE_PERIOD ms
               val now = System.currentTimeMillis()
-              if (lifetime == PERSISTENT_GLOBAL && (now - lastPersistence) >= PERSISTENCE_PERIOD) {
+              if (now - lastPersistence >= PERSISTENCE_PERIOD) {
                 persistence.saveTask(Task.this)
                 lastPersistence = now
               }
@@ -132,9 +134,4 @@ class Task(feeder: Feeder, val action: TaskAction, val lifetime: TaskLifetime = 
   }
 }
 
-abstract class TaskLifetime
-
-object EPHEMERAL extends TaskLifetime
-
-object PERSISTENT_GLOBAL extends TaskLifetime
 

@@ -3,12 +3,11 @@ package com.wajam.spnl
 /**
  * Spnl service. Handles feeder registry as well as tasks execution.
  */
-class Spnl(val persistence: TaskPersistence) {
+class Spnl {
   val scheduler = new Scheduler
 
   def run(task: Task) {
-    persistence.loadTask(task)
-    task.init(persistence)
+    task.persistence.loadTask(task)
     scheduler.startTask(task)
   }
 

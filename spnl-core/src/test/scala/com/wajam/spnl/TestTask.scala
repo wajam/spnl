@@ -14,13 +14,16 @@ import org.mockito.invocation.InvocationOnMock
 class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   var mockedFeed: Feeder = null
   var mockedAction: TaskAction = null
+  var mockedAcceptor: TaskAcceptor = null
   var task: Task = null
 
   before {
     mockedFeed = mock[Feeder]
     mockedAction = mock[TaskAction]
+    mockedAcceptor = mock[TaskAcceptor]
+    when(mockedAcceptor.accept(anyObject())).thenReturn(true)
 
-    task = new Task(mockedFeed, mockedAction)
+    task = new Task(mockedFeed, mockedAction, acceptor = mockedAcceptor)
     task.start()
   }
 
@@ -82,5 +85,24 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     task.tock(data)
     task.tick(true)
     assert(!task.isThrottling)
+  }
+
+  test("should call action only if accepted by acceptor") {
+    val feedNext: () => Option[Map[String, Any]] = () => Some(Map("token" -> "0"))
+    when(mockedFeed.peek()).then(new Answer[Option[Map[String, Any]]] {
+      def answer(invocation: InvocationOnMock) = feedNext()
+    })
+
+    // Accept false
+    reset(mockedAcceptor)
+    when(mockedAcceptor.accept(anyObject())).thenReturn(false)
+    task.tick(sync = true)
+    verifyZeroInteractions(mockedAction)
+
+    // Accept true
+    reset(mockedAcceptor)
+    when(mockedAcceptor.accept(anyObject())).thenReturn(true)
+    task.tick(sync = true)
+    verify(mockedAction).call(same(task), anyObject(), anyInt())
   }
 }
