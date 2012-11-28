@@ -5,7 +5,11 @@ import com.wajam.nrv.service.{MemberStatus, ServiceMember, Service}
 /**
  * Verify if the specified record data should be processed by this task
  */
-class TaskAcceptor {
+trait TaskAcceptor {
+  def accept(data: Map[String, Any]): Boolean
+}
+
+class AcceptAllTaskAcceptor extends TaskAcceptor {
   def accept(data: Map[String, Any]) = true
 }
 

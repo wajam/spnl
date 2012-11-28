@@ -12,13 +12,13 @@ import util.Random
  * @param feeder Data source
  * @param action Action to call with new data
  */
-class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersistence = new NoTaskPersistence, val name: String = "",
-           var context: TaskContext = new TaskContext, acceptor: TaskAcceptor = new TaskAcceptor)
+class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersistence = NoTaskPersistence, val name: String = "",
+           var context: TaskContext = new TaskContext, acceptor: TaskAcceptor = new AcceptAllTaskAcceptor)
   extends Logging with Instrumented {
 
   val PERSISTENCE_PERIOD = 10000
 
-  if (!persistence.isInstanceOf[NoTaskPersistence] && name.isEmpty)
+  if (persistence != NoTaskPersistence && name.isEmpty)
     throw new UninitializedFieldError("A name should be provided for persistent tasks")
 
   // Distribute in time persistence between tasks
