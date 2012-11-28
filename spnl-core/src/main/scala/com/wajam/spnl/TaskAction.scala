@@ -53,7 +53,7 @@ class TaskAction(val path: ActionPath,
     }
   }
 
-  protected[spnl] def call(task: Task, data: Map[String, Any], retries: Int = 1) {
+  protected[spnl] def call(task: Task, data: Map[String, Any], retries: Int = 5) {
     callsMeter.mark()
     val timer = executeTime.timerContext()
     action.call(data.toIterable, (message: InMessage, option: Option[Exception]) =>  {
