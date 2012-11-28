@@ -23,7 +23,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     mockedAcceptor = mock[TaskAcceptor]
     when(mockedAcceptor.accept(anyObject())).thenReturn(true)
 
-    task = new Task(mockedFeed, mockedAction, acceptor = mockedAcceptor)
+    task = new Task("test_task", mockedFeed, mockedAction, acceptor = mockedAcceptor)
     task.start()
   }
 

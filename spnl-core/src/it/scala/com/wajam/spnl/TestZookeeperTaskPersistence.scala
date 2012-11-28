@@ -22,25 +22,19 @@ class TestZookeeperTaskPersistence extends FunSuite with MockitoSugar {
   val mockFeeder = mock[Feeder]
   val mockAction = mock[TaskAction]
 
-  test("a persisted task should always have a name") {
-    evaluating {
-      new Task(mockFeeder, mockAction, persistence = zkPersistence)
-    } should produce [UninitializedFieldError]
-  }
-
   test("should save and load persisted task") {
-    var task = new Task(mockFeeder, mockAction, persistence = zkPersistence, name = "ittest_persistence")
+    var task = new Task("ittest_persistence", mockFeeder, mockAction, persistence = zkPersistence)
     task.context.data += ("test" -> "value")
     zkPersistence.saveTask(task)
 
-    task = new Task(mockFeeder, mockAction, persistence = zkPersistence, name = "ittest_persistence")
+    task = new Task("ittest_persistence", mockFeeder, mockAction, persistence = zkPersistence)
     zkPersistence.loadTask(task)
 
     assert("value".equals(task.context.data.get("test").get))
   }
 
   test("should not throw an exception when loading unexistant data") {
-    val task = new Task(mockFeeder, mockAction, persistence = zkPersistence, name = "ittest_unset")
+    val task = new Task("ittest_unset", mockFeeder, mockAction, persistence = zkPersistence)
     zkPersistence.loadTask(task)
     assert(task.context.data.get("test").isEmpty)
   }
