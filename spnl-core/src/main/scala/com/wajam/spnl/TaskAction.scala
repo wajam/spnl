@@ -25,26 +25,13 @@ class TaskAction(val path: ActionPath,
     this(path, impl, new Action(path, (msg) => impl(new SpnlRequest(msg))))
   }
 
-  protected[spnl] def processActionResult(task: Task, data: Map[String, Any], retriesLeft: Int)
+  protected[spnl] def processActionResult(task: Task, data: Map[String, Any])
                                          (msg: InMessage, optException: Option[Exception]) {
     optException match {
-      case Some(SpnlThrottleAndRetryException) => {
+      case Some(e) => {
         errorMeter.mark()
-        task.currentRate = task.context.throttleRate
-        if (retriesLeft > 0) {
-          call(task, data, retriesLeft)
-        } else {
-          task.kill()
-        }
-      }
-      case Some(SpnlKillException) => {
-        errorMeter.mark()
-        task.kill()
-      }
-      case Some(unknownException) => {
-        errorMeter.mark()
-        log.error("Unmanaged exception occured in implementation of task {}", path, unknownException)
-        task.kill()
+        log.error("Error occured in task {}: {}", path, e)
+        task.fail(data, e)
       }
       case None => {
         successMeter.mark()
@@ -53,12 +40,12 @@ class TaskAction(val path: ActionPath,
     }
   }
 
-  protected[spnl] def call(task: Task, data: Map[String, Any], retries: Int = 5) {
+  protected[spnl] def call(task: Task, data: Map[String, Any]) {
     callsMeter.mark()
     val timer = executeTime.timerContext()
     action.call(data.toIterable, (message: InMessage, option: Option[Exception]) =>  {
       try {
-        processActionResult(task, data, retries - 1)(message, option)
+        processActionResult(task, data)(message, option)
       } finally {
         timer.stop()
       }
@@ -82,23 +69,13 @@ class SpnlRequest(val message: InMessage) extends Logging {
   }
 
   def fail(e: Exception) {
-    log.warn("Non-critical error occured while processing task {}", path, e)
-    message.replyWithError(SpnlKillException, Map("status" -> "fail"))
-  }
-
-  def retry(e: Exception) {
-    log.warn("Recoverable error occured while processing task {}", path, e)
-    message.replyWithError(SpnlThrottleAndRetryException, Map("status" -> "retry"))
+    log.warn("Non-critical error occured while processing task {}: {}", path, e)
+    message.replyWithError(e, Map("status" -> "fail"))
   }
 
   def ignore(e: Exception) {
-    log.error("Fatal error occured while processing task {}", path, e)
+    log.warn("Fatal error occured while processing task {}: {}", path, e)
     message.reply(Map("status" -> "ignore"))
   }
 
 }
-
-private[spnl] object SpnlThrottleAndRetryException extends Exception
-
-private[spnl] object SpnlKillException extends Exception
-

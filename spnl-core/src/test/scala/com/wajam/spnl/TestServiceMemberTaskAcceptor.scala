@@ -40,6 +40,8 @@ class TestServiceMemberTaskAcceptor extends FunSuite {
     acceptor.accept(Map("token" -> "2500")) should be (false)
 
     // No token!!!
-    acceptor.accept(Map()) should be (false)
+    evaluating {
+      acceptor.accept(Map())
+    } should produce [Exception]
   }
 }

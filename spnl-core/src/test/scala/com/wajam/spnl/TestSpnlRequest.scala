@@ -28,12 +28,6 @@ class TestSpnlRequest extends FunSuite with MockitoSugar with OneInstancePerTest
 
   test("should send a reply with a failed status") {
     request.fail(e)
-    verify(msg).replyWithError(SpnlKillException, Map("status" -> "fail"), null, null, 0)
+    verify(msg).replyWithError(e, Map("status" -> "fail"), null, null, 0)
   }
-
-  test("should send a reply with a retry status") {
-    request.retry(e)
-    verify(msg).replyWithError(SpnlThrottleAndRetryException, Map("status" -> "retry"), null, null, 0)
-  }
-
 }
