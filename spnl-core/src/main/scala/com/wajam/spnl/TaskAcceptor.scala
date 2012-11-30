@@ -19,7 +19,7 @@ class ServiceMemberTaskAcceptor(service: Service, member: ServiceMember) extends
       case Some(token: String) => {
         service.resolveMembers(token.toLong, 1).forall(resolved => resolved == member && resolved.status == MemberStatus.Up)
       }
-      case _ => false // TODO: error if no token?
+      case _ => throw new Exception("Task data is missing token")
     }
   }
 }
