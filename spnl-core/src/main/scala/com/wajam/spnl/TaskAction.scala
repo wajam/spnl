@@ -64,17 +64,17 @@ class SpnlRequest(val message: InMessage) extends Logging {
   private val path = message.path
 
   def ok() {
-    log.trace("Success for path {}", path)
+    log.trace("Success: {}", path)
     message.reply(Map("status" -> "ok"))
   }
 
   def fail(e: Exception) {
-    log.warn("Non-critical error occured while processing task {}: {}", path, e)
+    log.warn("Error occured while processing task {}: {}", path, e)
     message.replyWithError(e, Map("status" -> "fail"))
   }
 
   def ignore(e: Exception) {
-    log.warn("Fatal error occured while processing task {}: {}", path, e)
+    log.warn("Ignored error occured while processing task {}: {}", path, e)
     message.reply(Map("status" -> "ignore"))
   }
 
