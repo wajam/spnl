@@ -13,7 +13,7 @@ class Scheduler {
   val scheduledExecutor = new ScheduledThreadPoolExecutor(POOL_SIZE)
   val tasks = mutable.Set[ScheduledTask]()
 
-  class ScheduledTask(var realTask: Task, var lastRate: Int = 0, var run: TaskRunner = null) {
+  class ScheduledTask(var realTask: Task, var lastRate: Double = 0, var run: TaskRunner = null) {
     override def hashCode() = 2 * realTask.hashCode()
 
     override def equals(obj: Any) = obj match {
@@ -68,7 +68,7 @@ class Scheduler {
             }
           }
 
-          val time = scala.math.max((1000000000f / int2float(newRate)).toLong, 1)
+          val time = scala.math.max((1000000000f / newRate).toLong, 1)
           scheduledExecutor.scheduleAtFixedRate(task.run, 0, time, TimeUnit.NANOSECONDS)
 
           task.lastRate = newRate

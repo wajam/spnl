@@ -22,27 +22,20 @@ class TestTaskAction extends FunSuite with MockitoSugar with OneInstancePerTest 
   val taskAction = new TaskAction(path, (msg: SpnlRequest) => (), action)
   val msg = mock[InMessage]
 
-  test("should kill task when callback has SpnlKillException") {
-    taskAction.processActionResult(task, Map(), 1)(msg, Some(SpnlKillException))
-    verify(task).kill()
-    verify(action, never()).call(any(), any(), any(), any(), anyLong())
-  }
-
-  test("should retry task when callback has SpnlThrottleAndRetryException") {
-    taskAction.processActionResult(task, Map(), 1)(msg, Some(SpnlThrottleAndRetryException))
-    verify(task, never()).kill()
-    verify(action).call(any(), any(), any(), any(), anyLong())
-  }
-
-  test("should kill task when callback has SpnlThrottleAndRetryException and no retries are left") {
-    taskAction.processActionResult(task, Map(), 0)(msg, Some(SpnlThrottleAndRetryException))
-    verify(task).kill()
-    verify(action, never()).call(any(), any(), any(), any(), anyLong())
+  test("should call task fail when callback has exception") {
+    val e = new Exception
+    val data: Map[String, Any] = Map()
+    taskAction.processActionResult(task, data)(msg, Some(e))
+    verify(task).fail(data, e)
+    verifyNoMoreInteractions(task)
+    verifyZeroInteractions(action)
   }
 
   test("should do nothing if no exception returned") {
-    taskAction.processActionResult(task, Map(), 1)(msg, None)
-    verify(task, never()).kill()
-    verify(action, never()).call(any(), any(), any(), any(), anyLong())
+    val data: Map[String, Any] = Map()
+    taskAction.processActionResult(task, data)(msg, None)
+    verify(task).tock(data)
+    verifyNoMoreInteractions(task)
+    verifyZeroInteractions(action)
   }
 }
