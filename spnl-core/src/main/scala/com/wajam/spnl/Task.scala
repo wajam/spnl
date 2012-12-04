@@ -113,6 +113,7 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
 
                     try {
                       if (acceptor.accept(data)) {
+                        // Data is for this task, process it
                         data.get("token") match {
                           case Some(token: String) if currentTokens.contains(token) => {
                             currentRate = context.throttleRate
@@ -125,6 +126,10 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
                             execute()
                           }
                         }
+                      } else {
+                        // Data is not for us, skip it
+                        feeder.next()
+                        feeder.ack(data)
                       }
                     } catch {
                       case e: Exception =>
