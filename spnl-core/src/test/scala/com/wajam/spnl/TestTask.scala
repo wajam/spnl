@@ -101,7 +101,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     })
 
     task.context.maxConcurrent = Some(2)
-    var concurrentCounter = new MetricsGroup(task.getClass).counter("concurrent-process", task.name)
+    var concurrentCounter = new MetricsGroup(task.getClass).counter("concurrent-count", task.name)
     concurrentCounter.clear()
 
     // Verify before
@@ -200,8 +200,8 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
 
     // Setup counters initial value. They will be validated at the end to ensure they are reset to that value
     // and not to zero
-    var retryCounter = new MetricsGroup(task.getClass).counter("retry", task.name)
-    var globalCounter = new MetricsGroup(task.getClass).counter("retry")
+    var retryCounter = new MetricsGroup(task.getClass).counter("retry-count", task.name)
+    var globalCounter = new MetricsGroup(task.getClass).counter("retry-count")
     retryCounter += 50
     globalCounter += 100
     retryCounter.count should be(50)
