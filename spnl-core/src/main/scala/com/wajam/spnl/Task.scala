@@ -4,7 +4,6 @@ import actors.Actor
 import com.wajam.nrv.Logging
 import com.yammer.metrics.scala.Instrumented
 import feeder.Feeder
-import util.Random
 import com.wajam.nrv.utils.CurrentTime
 
 /**
@@ -20,7 +19,7 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
   val PERSISTENCE_PERIOD = 10000
 
   // Distribute in time persistence between tasks
-  private var lastPersistence: Long = System.currentTimeMillis() - Random.nextInt(PERSISTENCE_PERIOD)
+  private var lastPersistence: Long = System.currentTimeMillis() - util.Random.nextInt(PERSISTENCE_PERIOD)
   private lazy val tickMeter = metrics.meter("tick", "ticks", name)
   private lazy val globalRetryCounter = metrics.counter("retry-count")
   private lazy val retryCounter = metrics.counter("retry-count", name)
