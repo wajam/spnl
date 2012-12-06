@@ -92,8 +92,17 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   }
 
   test("should call action only if accepted by acceptor") {
-    val feedNext: () => Option[Map[String, Any]] = () => Some(Map("token" -> "0"))
+    var index = 0
+    val feedPeek: () => Option[Map[String, Any]] = () => Some(Map("token" -> index.toString))
+    val feedNext: () => Option[Map[String, Any]] = () => Some(Map("token" -> {
+      val value = index.toString
+      index += 1
+      value
+    }))
     when(mockedFeed.peek()).then(new Answer[Option[Map[String, Any]]] {
+      def answer(invocation: InvocationOnMock) = feedPeek()
+    })
+    when(mockedFeed.next()).then(new Answer[Option[Map[String, Any]]] {
       def answer(invocation: InvocationOnMock) = feedNext()
     })
 
@@ -102,12 +111,21 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     when(mockedAcceptor.accept(anyObject())).thenReturn(false)
     task.tick(sync = true)
     verifyZeroInteractions(mockedAction)
+    index should be(1)
+
+    // Accept false again
+    reset(mockedAcceptor)
+    when(mockedAcceptor.accept(anyObject())).thenReturn(false)
+    task.tick(sync = true)
+    verifyZeroInteractions(mockedAction)
+    index should be(2)
 
     // Accept true
     reset(mockedAcceptor)
     when(mockedAcceptor.accept(anyObject())).thenReturn(true)
     task.tick(sync = true)
     verify(mockedAction).call(same(task), anyObject())
+    index should be(3)
   }
 
   test("Should throttle and retry on errors") {
