@@ -112,7 +112,7 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
               })
 
               // Try to execute an element if have enough concurrent slot
-              if (currentElements.size < context.maxConcurrent.getOrElse(TaskContext.DefaultMaxConcurrent)) {
+              if (currentElements.size < context.maxConcurrent) {
                 feeder.peek() match {
                   case Some(data) => {
                     try {

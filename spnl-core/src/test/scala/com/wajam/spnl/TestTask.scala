@@ -23,7 +23,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   var task: Task with ControlableCurrentTime = null
 
   before {
-    taskContext = new TaskContext(normalRate = 10, throttleRate = 1, maxConcurrent = Some(5))
+    taskContext = new TaskContext(normalRate = 10, throttleRate = 1, maxConcurrent = 5)
     mockedFeed = mock[Feeder]
     mockedAction = mock[TaskAction]
     mockedAcceptor = mock[TaskAcceptor]
@@ -100,7 +100,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
       def answer(invocation: InvocationOnMock) = feedNext()
     })
 
-    task.context.maxConcurrent = Some(2)
+    task.context.maxConcurrent = 2
     var concurrentCounter = new MetricsGroup(task.getClass).counter("concurrent-count", task.name)
     concurrentCounter.clear()
 

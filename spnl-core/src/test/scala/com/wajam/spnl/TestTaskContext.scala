@@ -3,31 +3,28 @@ package com.wajam.spnl
 import org.scalatest.FunSuite
 import org.scalatest.matchers.ShouldMatchers._
 
-import net.liftweb.json.JsonDSL._
 import net.liftweb.json.Diff
-
-//import net.liftweb.json._
-import net.liftweb.json.JsonAST.{JNothing, JObject}
+import net.liftweb.json.JsonAST.JNothing
 import net.liftweb.json.JsonParser._
 
 class TestTaskContext extends FunSuite {
   test("parse from json") {
-    val expected = TaskContext(Map("1" -> "one", "2" -> "two", "3" -> "three"), 4, 5, Some(6))
+    val expected = TaskContext(Map("1" -> "one", "2" -> "two", "3" -> "three"))
+    val json = """{"data":{"1":"one","2":"two","3":"three"}}"""
+    val actual = TaskContext.fromJson(json)
+    actual should be (expected)
+  }
+
+  test("parse from json ignore extra legacy config") {
+    val expected = TaskContext(Map("1" -> "one", "2" -> "two", "3" -> "three"))
     val json = """{"normalRate":4,"throttleRate":5,"maxConcurrent":6,"data":{"1":"one","2":"two","3":"three"}}"""
     val actual = TaskContext.fromJson(json)
     actual should be (expected)
   }
 
-  test("parse from json missing maxConcurrent") {
-    val expected = TaskContext(Map("1" -> "one", "2" -> "two", "3" -> "three"), 4, 5)
-    val json = """{"normalRate":4,"throttleRate":5,"data":{"1":"one","2":"two","3":"three"}}"""
-    val actual = TaskContext.fromJson(json)
-    actual should be (expected)
-  }
-
   test("save to json") {
-    val expected = """{"normalRate":4,"throttleRate":5,"maxConcurrent":6,"data":{"1":"one","2":"two","3":"three"}}"""
-    val task = TaskContext(Map("1" -> "one", "2" -> "two", "3" -> "three"), 4, 5, Some(6))
+    val expected = """{"data":{"1":"one","2":"two","3":"three"}}"""
+    val task = TaskContext(Map("1" -> "one", "2" -> "two", "3" -> "three"))
     val actual = task.toJson
 
     val diff = Diff.diff(parse(expected), parse(actual))
