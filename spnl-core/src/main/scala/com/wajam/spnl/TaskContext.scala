@@ -16,12 +16,9 @@ case class TaskContext(var data:Map[String, String] = Map[String, String](),
     json = json ~ ("data" -> data)
     Printer.compact(JsonAST.render(json))
   }
-}
 
-object TaskContext {
-  def fromJson(json: String): TaskContext = {
+  def updateFromJson(json: String) {
     implicit val formats = DefaultFormats
-    val data = (parse(json) \ "data").extract[Map[String, String]]
-    new TaskContext(data)
+    data = (parse(json) \ "data").extract[Map[String, String]]
   }
 }

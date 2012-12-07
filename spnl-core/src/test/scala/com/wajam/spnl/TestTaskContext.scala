@@ -11,14 +11,16 @@ class TestTaskContext extends FunSuite {
   test("parse from json") {
     val expected = TaskContext(Map("1" -> "one", "2" -> "two", "3" -> "three"))
     val json = """{"data":{"1":"one","2":"two","3":"three"}}"""
-    val actual = TaskContext.fromJson(json)
+    val actual = TaskContext()
+    actual.updateFromJson(json)
     actual should be (expected)
   }
 
   test("parse from json ignore extra legacy config") {
     val expected = TaskContext(Map("1" -> "one", "2" -> "two", "3" -> "three"))
     val json = """{"normalRate":4,"throttleRate":5,"maxConcurrent":6,"data":{"1":"one","2":"two","3":"three"}}"""
-    val actual = TaskContext.fromJson(json)
+    val actual = TaskContext()
+    actual.updateFromJson(json)
     actual should be (expected)
   }
 
