@@ -11,7 +11,7 @@ import com.sun.xml.internal.ws.api.streaming.XMLStreamWriterFactory.Default
 case class TaskContext(var data:Map[String, String] = Map[String, String](),
                        var normalRate:Int = 1,
                        var throttleRate:Int = 1,
-                       var maxConcurrent: Option[Int] = Some(5)) {
+                       var maxConcurrent: Option[Int] = Some(TaskContext.DefaultMaxConcurrent)) {
   def toJson: String = {
     var json = JObject(List())
     json = json ~ ("normalRate" -> normalRate)
