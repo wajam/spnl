@@ -20,7 +20,6 @@ object SpnlBuild extends Build {
     "com.wajam" %% "nrv-core" % "0.1-SNAPSHOT",
     "com.wajam" %% "nrv-zookeeper" % "0.1-SNAPSHOT",
     "net.liftweb" %% "lift-json" % "2.4-RC1",
-    "org.scala-lang" % "scalap" % "2.9.1",
     "org.scalatest" %% "scalatest" % "1.7.1" % "test,it",
     "junit" % "junit" % "4.10" % "test,it",
     "org.mockito" % "mockito-core" % "1.9.0" % "test,it"
