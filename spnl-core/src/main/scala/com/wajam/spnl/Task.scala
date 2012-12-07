@@ -29,7 +29,7 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
   @volatile
   var currentRate: Double = context.normalRate
 
-  private var currentElements: Map[String, Option[Retry]] = Map()
+  private var currentAttempts: Map[String, Attempt] = Map()
 
   private def dataToken(data: Map[String, Any]): String = {
     data.getOrElse("token", "").asInstanceOf[String]
@@ -55,7 +55,7 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
 
   def isThrottling = currentRate < context.normalRate
 
-  def isRetrying = currentElements.values.exists(_.isDefined)
+  def isRetrying = currentAttempts.values.exists(_.mustRetry)
 
   // actions used by the task actor
   private object Kill
@@ -66,22 +66,30 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
 
   private case class Error(data: Map[String, Any], e: Exception)
 
-  private class Retry(data: Map[String, Any]) {
-    private var count = 0
-    private var lastTry = currentTime
+  private class Attempt(data: Map[String, Any]) {
+    private var errorCount = 0
+    private var retryCount = 0
+    private var lastAttemptTime = currentTime
 
-    currentRate = context.throttleRate
+    concurrentCounter += 1
 
-    def nextWait = math.pow(2, count).toLong * (1000 / context.throttleRate)
+    def onError() {
+      errorCount += 1
+      currentRate = context.throttleRate
+    }
 
-    def tryAgain(): Boolean = {
-      if (lastTry + nextWait < currentTime) {
+    def nextAttemptTime = lastAttemptTime + math.pow(2, retryCount).toLong * (1000 / context.throttleRate)
+
+    def mustRetry = errorCount > retryCount
+
+    def attemptAgain(): Boolean = {
+      if (mustRetry && nextAttemptTime < currentTime) {
         globalRetryCounter += 1
         retryCounter += 1
-        count += 1
-        lastTry = currentTime
+        retryCount += 1
+        lastAttemptTime = currentTime
 
-        info("Retry {} of task {} ({})", count, name, dataToken(data))
+        info("Retry {} of task {} ({})", retryCount, name, dataToken(data))
         action.call(Task.this, data)
         true
       } else {
@@ -90,9 +98,13 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
     }
 
     def done() {
-      globalRetryCounter -= count
-      retryCounter -= count
-      count = 0
+      globalRetryCounter -= retryCount
+      retryCounter -= retryCount
+      retryCount = 0
+      errorCount = 0
+
+      concurrentCounter -= 1
+      processedCounter += 1
 
       currentRate = context.normalRate
     }
@@ -106,22 +118,18 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
           case Tick => {
             try {
               // Retry at most one element
-              currentElements.values.exists(_ match {
-                case Some(retry) => retry.tryAgain()
-                case _ => false
-              })
+              currentAttempts.values.exists(_.attemptAgain())
 
-              // Try to execute an element if have enough concurrent slot
-              if (currentElements.size < context.maxConcurrent) {
+              // Attempt processing data if have enough concurrent slot
+              if (currentAttempts.size < context.maxConcurrent) {
                 feeder.peek() match {
                   case Some(data) => {
                     try {
                       if (acceptor.accept(data)) {
                         // Data is for this task, process it
                         val token = dataToken(data)
-                        if (!currentElements.contains(token)) {
-                          concurrentCounter += 1
-                          currentElements += (token -> None)
+                        if (!currentAttempts.contains(token)) {
+                          currentAttempts += (token -> new Attempt(data))
                           feeder.next()
                           action.call(Task.this, data)
                           currentRate = if (isRetrying) context.throttleRate else context.normalRate
@@ -162,13 +170,8 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
             try {
               val token = dataToken(data)
               trace("Task {} ({}) finished", name, token)
-              currentElements(token) match {
-                case Some(retry) => retry.done()
-                case _ =>
-              }
-              currentElements -= token
-              concurrentCounter -= 1
-              processedCounter += 1
+              currentAttempts(token).done()
+              currentAttempts -= token
 
               feeder.ack(data)
             } catch {
@@ -194,16 +197,10 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
 
     private def handleError(data: Map[String, Any], e: Exception) {
       val token = dataToken(data)
-      val retry = currentElements(token) match {
-        case Some(r) => r
-        case None => {
-          val r = new Retry(data)
-          currentElements += (token -> Some(r))
-          r
-        }
-      }
+      val attempt = currentAttempts(token)
+      attempt.onError()
 
-      info("Task {} ({}) got an error and will retry in {} ms: {}", name, token, retry.nextWait, e)
+      info("Task {} ({}) got an error and will retry in {} ms: {}", name, token, attempt.nextAttemptTime - currentTime, e)
     }
   }
 
