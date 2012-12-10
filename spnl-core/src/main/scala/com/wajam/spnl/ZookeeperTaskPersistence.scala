@@ -26,7 +26,7 @@ class ZookeeperTaskPersistence(zkClient: ZookeeperClient, service: Service, memb
     if (zkClient.exists(path)) {
       val data = zkClient.getString(path)
       try {
-        task.context = TaskContext.fromJson(data)
+        task.context.updateFromJson(data)
       } catch {
         case e: Exception => warn("Couldn't unserialize task {} from zookeeper", task.name, e)
       }

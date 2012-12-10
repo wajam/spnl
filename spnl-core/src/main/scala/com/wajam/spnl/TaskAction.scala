@@ -30,7 +30,7 @@ class TaskAction(val path: ActionPath,
     optException match {
       case Some(e) => {
         errorMeter.mark()
-        log.error("Error occured in task {}: {}", path, e)
+        log.info("Error occured in task {}: {}", path, e)
         task.fail(data, e)
       }
       case None => {
@@ -74,7 +74,7 @@ class SpnlRequest(val message: InMessage) extends Logging {
   }
 
   def ignore(e: Exception) {
-    log.warn("Ignored error occured while processing task {}: {}", path, e)
+    log.info("Ignored error occured while processing task {}: {}", path, e)
     message.reply(Map("status" -> "ignore"))
   }
 
