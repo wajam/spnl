@@ -70,15 +70,17 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
     private var errorCount = 0
     private var retryCount = 0
     private var lastAttemptTime = currentTime
+    private var lastErrorTime = 0L
 
     concurrentCounter += 1
 
     def onError() {
       errorCount += 1
+      lastErrorTime = currentTime
       currentRate = context.throttleRate
     }
 
-    def nextAttemptTime = lastAttemptTime + math.pow(2, retryCount).toLong * (1000 / context.throttleRate)
+    def nextAttemptTime = lastErrorTime + math.pow(2, retryCount).toLong * (1000 / context.throttleRate)
 
     def mustRetry = errorCount > retryCount
 
@@ -200,7 +202,7 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
       val attempt = currentAttempts(token)
       attempt.onError()
 
-      info("Task {} ({}) got an error and will retry in {} ms: {}", name, token, attempt.nextAttemptTime - currentTime, e)
+      info("Task {} ({}) got an error and will retry in {} ms (data={}): {}", name, token, attempt.nextAttemptTime - currentTime, data, e)
     }
   }
 
