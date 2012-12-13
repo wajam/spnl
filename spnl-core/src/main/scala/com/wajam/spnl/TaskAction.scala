@@ -1,6 +1,6 @@
 package com.wajam.spnl
 
-import com.wajam.nrv.service.{ActionPath, Action}
+import com.wajam.nrv.service.{ActionSupportOptions, ActionPath, Action}
 import com.wajam.nrv.data.InMessage
 import com.wajam.nrv.Logging
 import com.yammer.metrics.scala.Instrumented
@@ -14,15 +14,16 @@ class TaskAction(val path: ActionPath,
                  impl: SpnlRequest => Unit,
                  val action: Action) extends Logging with Instrumented {
 
-  lazy val metricsPath = this.path.replace("/", "_").substring(1)
+  lazy val name = TaskAction.pathToName(path)
 
-  private lazy val callsMeter = metrics.meter("calls", "calls", metricsPath)
-  private lazy val successMeter = metrics.meter("success", "success", metricsPath)
-  private lazy val errorMeter = metrics.meter("error", "error", metricsPath)
-  private lazy val executeTime = metrics.timer("execute-time", metricsPath)
+  private lazy val callsMeter = metrics.meter("calls", "calls", name)
+  private lazy val successMeter = metrics.meter("success", "success", name)
+  private lazy val errorMeter = metrics.meter("error", "error", name)
+  private lazy val executeTime = metrics.timer("execute-time", name)
 
-  def this(path: ActionPath, impl: SpnlRequest => Unit) = {
-    this(path, impl, new Action(path, (msg) => impl(new SpnlRequest(msg))))
+  def this(path: ActionPath, impl: SpnlRequest => Unit, responseTimeout: Long) = {
+    this(path, impl, new Action(path, (msg) => impl(new SpnlRequest(msg)),
+      actionSupportOptions = new ActionSupportOptions(responseTimeout = Some(responseTimeout))))
   }
 
   protected[spnl] def processActionResult(task: Task, data: Map[String, Any])
@@ -52,6 +53,10 @@ class TaskAction(val path: ActionPath,
     })
   }
 
+}
+
+object TaskAction {
+  def pathToName(path: String): String = path.replace("/", "_").substring(1)
 }
 
 /**
