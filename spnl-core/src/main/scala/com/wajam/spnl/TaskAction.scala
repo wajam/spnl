@@ -10,9 +10,7 @@ import com.yammer.metrics.scala.Instrumented
  * Date: 07/11/12
  * Time: 2:13 PM
  */
-class TaskAction(val path: ActionPath,
-                 impl: SpnlRequest => Unit,
-                 val action: Action) extends Logging with Instrumented {
+class TaskAction(val path: ActionPath, val action: Action) extends Logging with Instrumented {
 
   lazy val name = TaskAction.pathToName(path)
 
@@ -22,7 +20,7 @@ class TaskAction(val path: ActionPath,
   private lazy val executeTime = metrics.timer("execute-time", name)
 
   def this(path: ActionPath, impl: SpnlRequest => Unit, responseTimeout: Long) = {
-    this(path, impl, new Action(path, (msg) => impl(new SpnlRequest(msg)),
+    this(path, new Action(path, (msg) => impl(new SpnlRequest(msg)),
       actionSupportOptions = new ActionSupportOptions(responseTimeout = Some(responseTimeout))))
   }
 

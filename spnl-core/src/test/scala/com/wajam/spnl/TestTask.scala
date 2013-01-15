@@ -12,13 +12,11 @@ import org.mockito.invocation.InvocationOnMock
 import com.yammer.metrics.scala.MetricsGroup
 import org.scalatest.matchers.ShouldMatchers._
 import com.wajam.nrv.utils.ControlableCurrentTime
-import util.Random
 
 @RunWith(classOf[JUnitRunner])
 class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   var mockedFeed: Feeder = null
   var mockedAction: TaskAction = null
-  var mockedAcceptor: TaskAcceptor = null
   var taskContext: TaskContext = null
   var task: Task with ControlableCurrentTime = null
 
@@ -26,10 +24,8 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     taskContext = new TaskContext(normalRate = 10, throttleRate = 1, maxConcurrent = 5)
     mockedFeed = mock[Feeder]
     mockedAction = mock[TaskAction]
-    mockedAcceptor = mock[TaskAcceptor]
-    when(mockedAcceptor.accept(anyObject())).thenReturn(true)
 
-    task = new Task("test_task", mockedFeed, mockedAction, context = taskContext, acceptor = mockedAcceptor)
+    task = new Task("test_task", mockedFeed, mockedAction, context = taskContext)
       with ControlableCurrentTime
     task.start()
     reset(mockedFeed) // Reset interaction recorded during start
@@ -44,6 +40,20 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     verify(mockedAction).call(same(task), anyObject())
   }
 
+  test("task kill") {
+    when(mockedFeed.peek()).thenReturn(Some(Map("k" -> "val")))
+
+    task.kill()
+    task.tick(sync = false)
+    task.tick(sync = false)
+    task.tick(sync = false)
+    task.tick(sync = false)
+    Thread.sleep(300)
+    verify(mockedFeed).kill()
+    verifyNoMoreInteractions(mockedFeed)
+    verifyZeroInteractions(mockedAction)
+  }
+
   test("when feeder returns no data or an exception, task should throttle") {
     var feedNext: () => Option[Map[String, Any]] = null
     when(mockedFeed.peek()).then(new Answer[Option[Map[String, Any]]] {
@@ -54,22 +64,22 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
 
     // feeder returns data
     feedNext = () => Some(Map("token" -> "0"))
-    task.tick(true)
+    task.tick(sync = true)
     assert(!task.isThrottling)
 
     // feeder returns no data
     feedNext = () => None
-    task.tick(true)
+    task.tick(sync = true)
     assert(task.isThrottling)
 
     // feeder returns data
     feedNext = () => Some(Map("token" -> "1"))
-    task.tick(true)
+    task.tick(sync = true)
     assert(!task.isThrottling)
 
     // feeder throws exception
     feedNext = () => throw new Exception("testing")
-    task.tick(true)
+    task.tick(sync = true)
     assert(task.isThrottling)
   }
 
@@ -82,14 +92,14 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
 
     task.context.normalRate should be > task.context.throttleRate
 
-    task.tick(true)
+    task.tick(sync = true)
     verify(mockedAction, times(1)).call(same(task), anyObject())
 
-    task.tick(true)
+    task.tick(sync = true)
     verify(mockedAction, times(1)).call(same(task), anyObject())
 
     task.tock(data)
-    task.tick(true)
+    task.tick(sync = true)
     verify(mockedAction, times(2)).call(same(task), anyObject())
   }
 
@@ -155,43 +165,6 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     concurrentCounter.count should be(2)
     verifyNoMoreInteractions(mockedFeed)
     verify(mockedAction, times(4)).call(same(task), anyObject())
-  }
-
-  test("should call action only if accepted by acceptor") {
-    var index = 0
-    val feedPeek: () => Option[Map[String, Any]] = () => Some(Map("token" -> index.toString))
-    val feedNext: () => Option[Map[String, Any]] = () => Some(Map("token" -> {
-      val value = index.toString
-      index += 1
-      value
-    }))
-    when(mockedFeed.peek()).then(new Answer[Option[Map[String, Any]]] {
-      def answer(invocation: InvocationOnMock) = feedPeek()
-    })
-    when(mockedFeed.next()).then(new Answer[Option[Map[String, Any]]] {
-      def answer(invocation: InvocationOnMock) = feedNext()
-    })
-
-    // Accept false
-    reset(mockedAcceptor)
-    when(mockedAcceptor.accept(anyObject())).thenReturn(false)
-    task.tick(sync = true)
-    verifyZeroInteractions(mockedAction)
-    index should be(1)
-
-    // Accept false again
-    reset(mockedAcceptor)
-    when(mockedAcceptor.accept(anyObject())).thenReturn(false)
-    task.tick(sync = true)
-    verifyZeroInteractions(mockedAction)
-    index should be(2)
-
-    // Accept true
-    reset(mockedAcceptor)
-    when(mockedAcceptor.accept(anyObject())).thenReturn(true)
-    task.tick(sync = true)
-    verify(mockedAction).call(same(task), anyObject())
-    index should be(3)
   }
 
   test("Should throttle and retry on errors") {
