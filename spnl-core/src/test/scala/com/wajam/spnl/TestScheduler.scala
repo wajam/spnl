@@ -3,8 +3,10 @@ package com.wajam.spnl
 import org.scalatest.FunSuite
 import org.scalatest.junit.JUnitRunner
 import org.junit.runner.RunWith
+import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
+import org.scalatest.matchers.ShouldMatchers._
 import org.mockito.stubbing.Answer
 import org.mockito.invocation.InvocationOnMock
 
@@ -75,9 +77,33 @@ class TestScheduler extends FunSuite with MockitoSugar {
     scheduler.startTask(mockedTask)
 
     assert(scheduler.tasks.size === 1)
+    Thread.sleep(200)
 
     scheduler.endTask(mockedTask)
 
     assert(scheduler.tasks.size === 0)
+  }
+
+  test("end task should not call task anymore") {
+    val scheduler = new Scheduler
+    val mockedTask = mock[Task]
+
+    var stoped = false
+    var tickAfterStop = 0
+    when(mockedTask.currentRate).thenReturn(10)
+    when(mockedTask.tick(anyBoolean())).then(new Answer[Unit] {
+      def answer(invocation: InvocationOnMock) {
+        if (stoped) {
+          tickAfterStop += 1
+        }
+      }
+    })
+
+    scheduler.startTask(mockedTask)
+    Thread.sleep(200)
+    scheduler.endTask(mockedTask)
+    stoped = true
+    Thread.sleep(500)
+    tickAfterStop should be(0)
   }
 }

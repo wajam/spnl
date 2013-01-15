@@ -13,7 +13,7 @@ import com.wajam.nrv.utils.CurrentTime
  * @param action Action to call with new data
  */
 class Task(val name: String, feeder: Feeder, val action: TaskAction, val persistence: TaskPersistence = NoTaskPersistence,
-           var context: TaskContext = new TaskContext, acceptor: TaskAcceptor = new AcceptAllTaskAcceptor)
+           var context: TaskContext = new TaskContext)
   extends Logging with Instrumented with CurrentTime {
 
   val PERSISTENCE_PERIOD = 10000
@@ -66,7 +66,7 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
 
   private case class Error(data: Map[String, Any], e: Exception)
 
-  private class Attempt(data: Map[String, Any]) {
+  private class Attempt(val data: Map[String, Any]) {
     private var errorCount = 0
     private var retryCount = 0
     private var lastAttemptTime = currentTime
@@ -80,23 +80,20 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
       currentRate = context.throttleRate
     }
 
-    def nextAttemptTime = lastErrorTime + math.pow(2, retryCount).toLong * (1000 / context.throttleRate)
+    def nextRetryTime = lastErrorTime + math.pow(2, retryCount).toLong * (1000 / context.throttleRate)
 
     def mustRetry = errorCount > retryCount
 
-    def attemptAgain(): Boolean = {
-      if (mustRetry && nextAttemptTime < currentTime) {
-        globalRetryCounter += 1
-        retryCounter += 1
-        retryCount += 1
-        lastAttemptTime = currentTime
+    def mustRetryNow = mustRetry && nextRetryTime < currentTime
 
-        info("Retry {} of task {} ({})", retryCount, name, dataToken(data))
-        action.call(Task.this, data)
-        true
-      } else {
-        false
-      }
+    def retryNow() {
+      globalRetryCounter += 1
+      retryCounter += 1
+      retryCount += 1
+      lastAttemptTime = currentTime
+
+      info("Retry {} of task {} ({})", retryCount, name, dataToken(data))
+      action.call(Task.this, data)
     }
 
     def done() {
@@ -120,26 +117,29 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
           case Tick => {
             try {
               // Retry at most one element
-              currentAttempts.values.exists(_.attemptAgain())
+              currentAttempts.values.find(_.mustRetryNow) match {
+                case Some(attempt) => {
+                  try {
+                    attempt.retryNow()
+                  } catch {
+                    case e: Exception =>
+                      handleError(attempt.data, e)
+                  }
+                }
+                case _ => // No attempt to retry at this time
+              }
 
               // Attempt processing data if have enough concurrent slot
               if (currentAttempts.size < context.maxConcurrent) {
                 feeder.peek() match {
                   case Some(data) => {
                     try {
-                      if (acceptor.accept(data)) {
-                        // Data is for this task, process it
-                        val token = dataToken(data)
-                        if (!currentAttempts.contains(token)) {
-                          currentAttempts += (token -> new Attempt(data))
-                          feeder.next()
-                          action.call(Task.this, data)
-                          currentRate = if (isRetrying) context.throttleRate else context.normalRate
-                        }
-                      } else {
-                        // Data is not for us, skip it
+                      val token = dataToken(data)
+                      if (!currentAttempts.contains(token)) {
+                        currentAttempts += (token -> new Attempt(data))
                         feeder.next()
-                        feeder.ack(data)
+                        action.call(Task.this, data)
+                        currentRate = if (isRetrying) context.throttleRate else context.normalRate
                       }
                     } catch {
                       case e: Exception =>
@@ -191,6 +191,7 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
           }
           case Kill => {
             info("Task {} stopped", name)
+            currentAttempts.values.foreach(_.done())
             exit()
           }
         }
@@ -202,7 +203,7 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
       val attempt = currentAttempts(token)
       attempt.onError()
 
-      info("Task {} ({}) got an error and will retry in {} ms (data={}): {}", name, token, attempt.nextAttemptTime - currentTime, data, e)
+      info("Task {} ({}) got an error and will retry in {} ms (data={}): {}", name, token, attempt.nextRetryTime - currentTime, data, e)
     }
   }
 
@@ -215,5 +216,3 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
       TaskActor !? Tick
   }
 }
-
-
