@@ -32,9 +32,23 @@ class Scheduler {
   }
 
   def endTask(task: Task) {
-    tasks synchronized {
-      for (scheduledTask <- tasks.find(_.realTask == task)) {
+    // Remove sheduled task
+    val removedTaskOpt = tasks synchronized {
+      val foundTask = tasks.find(_.realTask == task)
+      for (scheduledTask <- foundTask) {
         tasks -= scheduledTask
+      }
+      foundTask
+    }
+
+    // Stop removed task
+    for (removedTask <- removedTaskOpt) {
+      removedTask.synchronized {
+        val taskRunner = removedTask.run
+        if (taskRunner != null) {
+          taskRunner.done = true
+          scheduledExecutor.remove(taskRunner)
+        }
       }
     }
   }
@@ -52,26 +66,29 @@ class Scheduler {
       }
 
       for (task <- tasksCopy) {
-        val newRate = task.realTask.currentRate
-        if (newRate != task.lastRate) {
-          if (task.run != null) {
-            task.run.done = true
-            scheduledExecutor.remove(task.run)
-          }
-
-          task.run = new TaskRunner {
-            def run() {
-              if (done)
-                throw new InterruptedException()
-
-              task.realTask.tick()
+        task.synchronized {
+          val newRate = task.realTask.currentRate
+          if (newRate != task.lastRate) {
+            val taskRunner = task.run
+            if (taskRunner != null) {
+              taskRunner.done = true
+              scheduledExecutor.remove(taskRunner)
             }
+
+            task.run = new TaskRunner {
+              def run() {
+                if (done)
+                  throw new InterruptedException()
+
+                task.realTask.tick()
+              }
+            }
+
+            val time = scala.math.max((1000000000f / newRate).toLong, 1)
+            scheduledExecutor.scheduleAtFixedRate(task.run, 0, time, TimeUnit.NANOSECONDS)
+
+            task.lastRate = newRate
           }
-
-          val time = scala.math.max((1000000000f / newRate).toLong, 1)
-          scheduledExecutor.scheduleAtFixedRate(task.run, 0, time, TimeUnit.NANOSECONDS)
-
-          task.lastRate = newRate
         }
       }
 
