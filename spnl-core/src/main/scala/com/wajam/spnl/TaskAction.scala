@@ -1,6 +1,6 @@
 package com.wajam.spnl
 
-import com.wajam.nrv.service.{ActionSupportOptions, ActionPath, Action}
+import com.wajam.nrv.service.{Resolver, ActionSupportOptions, ActionPath, Action}
 import com.wajam.nrv.data.InMessage
 import com.wajam.nrv.Logging
 import com.yammer.metrics.scala.Instrumented
@@ -10,18 +10,17 @@ import com.yammer.metrics.scala.Instrumented
  * Date: 07/11/12
  * Time: 2:13 PM
  */
-class TaskAction(val path: ActionPath, val action: Action) extends Logging with Instrumented {
-
-  lazy val name = TaskAction.pathToName(path)
+class TaskAction(val name: String, val action: Action) extends Logging with Instrumented {
 
   private lazy val callsMeter = metrics.meter("calls", "calls", name)
   private lazy val successMeter = metrics.meter("success", "success", name)
   private lazy val errorMeter = metrics.meter("error", "error", name)
   private lazy val executeTime = metrics.timer("execute-time", name)
 
-  def this(path: ActionPath, impl: SpnlRequest => Unit, responseTimeout: Long) = {
-    this(path, new Action(path, (msg) => impl(new SpnlRequest(msg)),
-      actionSupportOptions = new ActionSupportOptions(responseTimeout = Some(responseTimeout))))
+  def this(name: String, impl: SpnlRequest => Unit, responseTimeout: Long) = {
+    this(name, new Action(new ActionPath("/%s/:%s".format(name, TaskAction.TokenKey)),
+      (msg) => impl(new SpnlRequest(msg)), actionSupportOptions = new ActionSupportOptions(
+        responseTimeout = Some(responseTimeout), resolver = Some(TaskAction.TokenResolver))))
   }
 
   protected[spnl] def processActionResult(task: Task, data: Map[String, Any])
@@ -29,7 +28,7 @@ class TaskAction(val path: ActionPath, val action: Action) extends Logging with 
     optException match {
       case Some(e) => {
         errorMeter.mark()
-        log.info("Error occured in task {}: {}", path, e)
+        info("Error occured in task {}: {}", name, e)
         task.fail(data, e)
       }
       case None => {
@@ -50,11 +49,11 @@ class TaskAction(val path: ActionPath, val action: Action) extends Logging with 
       }
     })
   }
-
 }
 
 object TaskAction {
-  def pathToName(path: String): String = path.replace("/", "_").substring(1)
+  val TokenKey = "token"
+  val TokenResolver = new Resolver(tokenExtractor = Resolver.TOKEN_PARAM(TokenKey))
 }
 
 /**
