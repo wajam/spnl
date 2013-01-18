@@ -2,7 +2,6 @@ package com.wajam.spnl
 
 import com.wajam.nrv.zookeeper.ZookeeperClient
 import com.wajam.nrv.zookeeper.ZookeeperClient._
-import com.wajam.nrv.protocol.codec.JavaSerializeCodec
 import com.wajam.nrv.Logging
 import com.wajam.nrv.service.{ServiceMember, Service}
 import com.wajam.nrv.zookeeper.service.ZookeeperService
