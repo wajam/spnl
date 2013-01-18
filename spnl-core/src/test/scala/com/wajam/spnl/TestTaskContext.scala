@@ -9,8 +9,8 @@ import net.liftweb.json.JsonParser._
 
 class TestTaskContext extends FunSuite {
   test("parse from json") {
-    val expected = TaskContext(Map("1" -> "one", "2" -> "two", "3" -> "three"))
-    val json = """{"data":{"1":"one","2":"two","3":"three"}}"""
+    val expected = TaskContext(Map("seq" -> Seq("a", "b", "c"), "num" -> 1234567890, "str" -> "1234567890"))
+    val json = """{"data":{"seq":["a","b","c"],"num":1234567890,"str":"1234567890"}}"""
     val actual = TaskContext()
     actual.updateFromJson(json)
     actual should be (expected)
@@ -24,9 +24,17 @@ class TestTaskContext extends FunSuite {
     actual should be (expected)
   }
 
+  test("parse empty json data") {
+    val expected = TaskContext()
+    val json = """{"data":{}}"""
+    val actual = TaskContext()
+    actual.updateFromJson(json)
+    actual should be (expected)
+  }
+
   test("save to json") {
-    val expected = """{"data":{"1":"one","2":"two","3":"three"}}"""
-    val task = TaskContext(Map("1" -> "one", "2" -> "two", "3" -> "three"))
+    val expected = """{"data":{"seq":["a","b","c"],"num":1234567890,"str":"1234567890"}}"""
+    val task = TaskContext(Map("seq" -> Seq("a", "b", "c"), "num" -> 1234567890, "str" -> "1234567890"))
     val actual = task.toJson
 
     val diff = Diff.diff(parse(expected), parse(actual))
