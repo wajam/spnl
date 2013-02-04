@@ -9,6 +9,7 @@ import com.wajam.nrv.zookeeper.ZookeeperClient
 import org.scalatest.mock.MockitoSugar
 import com.wajam.nrv.service.{ServiceMember, Service, Action}
 import com.wajam.nrv.cluster.LocalNode
+import org.mockito.Mockito._
 
 @RunWith(classOf[JUnitRunner])
 class TestZookeeperTaskPersistence extends FunSuite with MockitoSugar {
@@ -23,18 +24,20 @@ class TestZookeeperTaskPersistence extends FunSuite with MockitoSugar {
   val mockAction = mock[TaskAction]
 
   test("should save and load persisted task") {
-    var task = new Task("ittest_persistence", mockFeeder, mockAction, persistence = zkPersistence)
+    when(mockAction.name).thenReturn("ittest_persistence")
+    var task = new Task(mockFeeder, mockAction, persistence = zkPersistence)
     task.context.data += ("test" -> "value")
     zkPersistence.saveTask(task)
 
-    task = new Task("ittest_persistence", mockFeeder, mockAction, persistence = zkPersistence)
+    task = new Task(mockFeeder, mockAction, persistence = zkPersistence)
     zkPersistence.loadTask(task)
 
     assert("value".equals(task.context.data.get("test").get))
   }
 
   test("should not throw an exception when loading unexistant data") {
-    val task = new Task("ittest_unset", mockFeeder, mockAction, persistence = zkPersistence)
+    when(mockFeeder.name).thenReturn("ittest_unset")
+    val task = new Task(mockFeeder, mockAction, persistence = zkPersistence)
     zkPersistence.loadTask(task)
     assert(task.context.data.get("test").isEmpty)
   }
