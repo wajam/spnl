@@ -12,7 +12,7 @@ import com.wajam.nrv.utils.CurrentTime
  * @param feeder Data source
  * @param action Action to call with new data
  */
-class Task(val name: String, feeder: Feeder, val action: TaskAction, val persistence: TaskPersistence = NoTaskPersistence,
+class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersistence = NoTaskPersistence,
            var context: TaskContext = new TaskContext)
   extends Logging with Instrumented with CurrentTime {
 
@@ -34,6 +34,8 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
   private def dataToken(data: Map[String, Any]): String = {
     data.getOrElse("token", "").asInstanceOf[String]
   }
+
+  val name = feeder.name
 
   def start() {
     this.feeder.init(this.context)
