@@ -62,6 +62,8 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
 
   private object Tick
 
+  private object Wait
+
   private case class Tock(data: Map[String, Any])
 
   private case class Error(data: Map[String, Any], e: Exception)
@@ -164,8 +166,6 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
 
                 // We got an exception. Handle it like if we didn't have any data by throttling
                 currentRate = context.throttleRate
-            } finally {
-              sender ! true
             }
           }
           case Tock(data) => {
@@ -189,6 +189,9 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
                 error("Task {} ({}) error on Error: {}", name, dataToken(data), e)
             }
           }
+          case Wait => {
+            reply(true)
+          }
           case Kill => {
             info("Task {} stopped", name)
             currentAttempts.values.foreach(_.done())
@@ -210,9 +213,8 @@ class Task(val name: String, feeder: Feeder, val action: TaskAction, val persist
   protected[spnl] def tick(sync: Boolean = false) {
     this.tickMeter.mark()
 
-    if (!sync)
-      TaskActor ! Tick
-    else
-      TaskActor !? Tick
+    TaskActor ! Tick
+    if (sync)
+      TaskActor !? Wait
   }
 }
