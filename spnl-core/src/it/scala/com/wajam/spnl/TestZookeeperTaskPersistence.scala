@@ -25,14 +25,14 @@ class TestZookeeperTaskPersistence extends FunSuite with MockitoSugar {
 
   test("should save and load persisted task") {
     when(mockAction.name).thenReturn("ittest_persistence")
-    var task = new Task(mockFeeder, mockAction, persistence = zkPersistence)
-    task.context.data += ("test" -> "value")
-    zkPersistence.saveTask(task)
+    val taskSave = new Task(mockFeeder, mockAction, persistence = zkPersistence)
+    taskSave.context.data += ("test" -> "value")
+    zkPersistence.saveTask(taskSave)
 
-    task = new Task(mockFeeder, mockAction, persistence = zkPersistence)
-    zkPersistence.loadTask(task)
+    val taskLoad = new Task(mockFeeder, mockAction, persistence = zkPersistence)
+    zkPersistence.loadTask(taskLoad)
 
-    assert("value".equals(task.context.data.get("test").get))
+    taskLoad.context.data should be(taskSave.context.data)
   }
 
   test("should not throw an exception when loading unexistant data") {

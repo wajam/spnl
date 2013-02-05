@@ -12,7 +12,6 @@ import com.yammer.metrics.scala.Instrumented
 abstract class CachedDataFeeder(val name: String) extends Feeder with Instrumented {
 
   lazy val loadMoreTimer = metrics.timer("load-more-time", name)
-  lazy val loadMoreMeter = metrics.meter("load-more-calls", "load-more-calls", name)
   lazy val loadMoreRecords = metrics.meter("load-more-records", "load-more-records", name)
 
   var cache: Queue[Map[String, Any]] = Queue()
@@ -40,8 +39,6 @@ abstract class CachedDataFeeder(val name: String) extends Feeder with Instrument
   def loadMore(): Iterable[Map[String, Any]]
 
   private def loadCache() {
-    loadMoreMeter.mark()
-
     val records = loadMoreTimer.time {
       loadMore()
     }
