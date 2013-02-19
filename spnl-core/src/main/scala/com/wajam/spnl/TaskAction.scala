@@ -1,7 +1,7 @@
 package com.wajam.spnl
 
 import com.wajam.nrv.service.{Resolver, ActionSupportOptions, ActionPath, Action}
-import com.wajam.nrv.data.{MString, InMessage}
+import com.wajam.nrv.data.{MValue, MString, InMessage}
 import com.wajam.nrv.Logging
 import com.yammer.metrics.scala.Instrumented
 
@@ -41,7 +41,10 @@ class TaskAction(val name: String, val action: Action) extends Logging with Inst
   protected[spnl] def call(task: Task, dataToSend: Map[String, Any]) {
     callsMeter.mark()
     val timer = executeTime.timerContext()
-    action.call(null, data = dataToSend.toIterable, onReply = (message: InMessage, option: Option[Exception]) =>  {
+
+    // TODO: MigrationDuplicate: Remove the call to params and replace by null
+    val duplicateData = MValue.mapToMMigrationCatchAll(dataToSend.toIterable)
+    action.call(params = duplicateData, data = dataToSend, onReply = (message: InMessage, option: Option[Exception]) =>  {
       try {
         processActionResult(task, dataToSend)(message, option)
       } finally {
