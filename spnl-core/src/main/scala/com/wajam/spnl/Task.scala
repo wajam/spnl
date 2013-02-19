@@ -6,9 +6,6 @@ import com.yammer.metrics.scala.Instrumented
 import feeder.Feeder
 import com.wajam.nrv.utils.CurrentTime
 
-import com.wajam.nrv.data.MValue
-import com.wajam.nrv.data.MValue._
-
 /**
  * Task taking data from a feeder and sending to remote action
  * @param context Task context
@@ -34,7 +31,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
 
   private var currentAttempts: Map[String, Attempt] = Map()
 
-  private def dataToken(data: Map[String, MValue]): String = {
+  private def dataToken(data: Map[String, Any]): String = {
     data.getOrElse("token", "").asInstanceOf[String]
   }
 
@@ -50,11 +47,11 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
     TaskActor ! Kill
   }
 
-  def tock(data: Map[String, MValue]) {
+  def tock(data: Map[String, Any]) {
     TaskActor ! Tock(data)
   }
 
-  def fail(data: Map[String, MValue], e: Exception) {
+  def fail(data: Map[String, Any], e: Exception) {
     TaskActor ! Error(data, e)
   }
 
@@ -69,11 +66,11 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
 
   private object Wait
 
-  private case class Tock(data: Map[String, MValue])
+  private case class Tock(data: Map[String, Any])
 
-  private case class Error(data: Map[String, MValue], e: Exception)
+  private case class Error(data: Map[String, Any], e: Exception)
 
-  private class Attempt(val data: Map[String, MValue]) {
+  private class Attempt(val data: Map[String, Any]) {
     private var errorCount = 0
     private var retryCount = 0
     private var lastAttemptTime = currentTime
@@ -206,7 +203,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
       }
     }
 
-    private def handleError(data: Map[String, MValue], e: Exception) {
+    private def handleError(data: Map[String, Any], e: Exception) {
       val token = dataToken(data)
       val attempt = currentAttempts(token)
       attempt.onError()

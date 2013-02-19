@@ -2,7 +2,6 @@ package com.wajam.spnl.feeder
 
 import com.wajam.spnl.TaskContext
 import org.scalatest.FunSuite
-import com.wajam.nrv.data.{MValue, MString}
 
 /**
  * User: Alexandre Bergeron <alex@wajam.com>
@@ -11,26 +10,24 @@ import com.wajam.nrv.data.{MValue, MString}
  */
 class TestCachedDataFeeder extends FunSuite {
 
-  val elem1 = Map("a" -> MString("b"))
-  val elem2 = Map("a" -> MString("c"))
+  val elem1 = Map("a" -> "b")
+  val elem2 = Map("a" -> "c")
 
   class CachedDataFeederImpl extends CachedDataFeeder("test_name") {
     var elems = List(elem1, elem2)
-
-    def loadMore(): Iterable[Map[String, MValue]] =
-      elems match {
-        case x :: xs => {
-          elems = xs
-          Iterable(x)
-        }
-        case Nil => Nil
+    def loadMore() = elems match {
+      case x :: xs => {
+        elems = xs
+        Iterable(x)
       }
+      case Nil => Nil
+    }
 
     def init(context: TaskContext) {}
 
     def kill() {}
 
-    def ack(data: Map[String, MValue]) {}
+    def ack(data: Map[String, Any]) {}
   }
 
   test("should peek and access next element") {

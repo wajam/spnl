@@ -3,7 +3,7 @@ package com.wajam.spnl
 import org.scalatest.{OneInstancePerTest, FunSuite}
 import org.scalatest.mock.MockitoSugar
 import com.wajam.nrv.service.Action
-import com.wajam.nrv.data.{MValue, InMessage}
+import com.wajam.nrv.data.InMessage
 import org.mockito.Mockito._
 
 /**
@@ -22,7 +22,7 @@ class TestTaskAction extends FunSuite with MockitoSugar with OneInstancePerTest 
 
   test("should call task fail when callback has exception") {
     val e = new Exception
-    val data: Map[String, MValue] = Map()
+    val data: Map[String, Any] = Map()
     taskAction.processActionResult(task, data)(msg, Some(e))
     verify(task).fail(data, e)
     verifyNoMoreInteractions(task)
@@ -30,7 +30,7 @@ class TestTaskAction extends FunSuite with MockitoSugar with OneInstancePerTest 
   }
 
   test("should do nothing if no exception returned") {
-    val data: Map[String, MValue] = Map()
+    val data: Map[String, Any] = Map()
     taskAction.processActionResult(task, data)(msg, None)
     verify(task).tock(data)
     verifyNoMoreInteractions(task)

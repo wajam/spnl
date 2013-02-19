@@ -1,10 +1,9 @@
 package com.wajam.spnl
 
 import com.wajam.nrv.service.{Resolver, ActionSupportOptions, ActionPath, Action}
-import com.wajam.nrv.data.{MString, InMessage, MValue}
+import com.wajam.nrv.data.InMessage
 import com.wajam.nrv.Logging
 import com.yammer.metrics.scala.Instrumented
-
 
 /**
  * User: Alexandre Bergeron <alex@wajam.com>
@@ -24,7 +23,7 @@ class TaskAction(val name: String, val action: Action) extends Logging with Inst
         responseTimeout = Some(responseTimeout), resolver = Some(TaskAction.TokenResolver))))
   }
 
-  protected[spnl] def processActionResult(task: Task, data: Map[String, MValue])
+  protected[spnl] def processActionResult(task: Task, data: Map[String, Any])
                                          (msg: InMessage, optException: Option[Exception]) {
     optException match {
       case Some(e) => {
@@ -39,10 +38,10 @@ class TaskAction(val name: String, val action: Action) extends Logging with Inst
     }
   }
 
-  protected[spnl] def call(task: Task, data: Map[String, MValue]) {
+  protected[spnl] def call(task: Task, data: Map[String, Any]) {
     callsMeter.mark()
     val timer = executeTime.timerContext()
-    action.call(data.toIterable, (message: InMessage, option: Option[Exception]) => {
+    action.call(data.toIterable, (message: InMessage, option: Option[Exception]) =>  {
       try {
         processActionResult(task, data)(message, option)
       } finally {
@@ -68,17 +67,17 @@ class SpnlRequest(val message: InMessage) extends Logging {
 
   def ok() {
     log.trace("Success: {}", path)
-    message.reply(Map("status" -> MString("ok")))
+    message.reply(Map("status" -> "ok"))
   }
 
   def fail(e: Exception) {
     log.warn("Error occured while processing task {}: {}", path, e)
-    message.replyWithError(e, Map("status" -> MString("fail")))
+    message.replyWithError(e, Map("status" -> "fail"))
   }
 
   def ignore(e: Exception) {
     log.info("Ignored error occured while processing task {}: {}", path, e)
-    message.reply(Map("status" -> MString("ignore")))
+    message.reply(Map("status" -> "ignore"))
   }
 
 }
