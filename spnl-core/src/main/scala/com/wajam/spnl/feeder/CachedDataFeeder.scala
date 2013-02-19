@@ -2,6 +2,7 @@ package com.wajam.spnl.feeder
 
 import collection.immutable.Queue
 import com.yammer.metrics.scala.Instrumented
+import com.wajam.nrv.data.MValue
 
 /**
  * Feeder which uses a cache to store data
@@ -14,7 +15,7 @@ abstract class CachedDataFeeder(val name: String) extends Feeder with Instrument
   lazy val loadMoreTimer = metrics.timer("load-more-time", name)
   lazy val loadMoreRecords = metrics.meter("load-more-records", "load-more-records", name)
 
-  var cache: Queue[Map[String, Any]] = Queue()
+  var cache: Queue[Map[String, MValue]] = Queue()
 
   def peek() = {
     if (cache.isEmpty) {
@@ -36,7 +37,7 @@ abstract class CachedDataFeeder(val name: String) extends Feeder with Instrument
     }
   }
 
-  def loadMore(): Iterable[Map[String, Any]]
+  def loadMore(): Iterable[Map[String, MValue]]
 
   private def loadCache() {
     val records = loadMoreTimer.time {
