@@ -2,7 +2,7 @@ package com.wajam.spnl
 
 import org.scalatest.{OneInstancePerTest, FunSuite}
 import org.scalatest.mock.MockitoSugar
-import com.wajam.nrv.data.InMessage
+import com.wajam.nrv.data.{MString, InMessage}
 import org.mockito.Mockito._
 
 /**
@@ -18,16 +18,16 @@ class TestSpnlRequest extends FunSuite with MockitoSugar with OneInstancePerTest
 
   test("should send a reply with an ok status") {
     request.ok()
-    verify(msg).reply(Map("status" -> "ok"), null, null, 0)
+    verify(msg).reply(Map("status" -> MString("ok")), null, null, 0)
   }
 
   test("should send a reply with an ignore status") {
     request.ignore(e)
-    verify(msg).reply(Map("status" -> "ignore"), null, null, 0)
+    verify(msg).reply(Map("status" -> MString("ignore")), null, null, 0)
   }
 
   test("should send a reply with a failed status") {
     request.fail(e)
-    verify(msg).replyWithError(e, Map("status" -> "fail"), null, null, 0)
+    verify(msg).replyWithError(e, Map("status" -> MString("fail")), null, null, 0)
   }
 }
