@@ -42,9 +42,8 @@ class TaskAction(val name: String, val action: Action) extends Logging with Inst
     callsMeter.mark()
     val timer = executeTime.timerContext()
 
-    // TODO: MigrationDuplicate: Remove the call to params and replace by null
-    val duplicateData = MValue.mapToMMigrationCatchAll(dataToSend.toIterable)
-    action.call(params = duplicateData, data = dataToSend, onReply = (message: InMessage, option: Option[Exception]) =>  {
+    val params : Map[String, MValue] = Map(TaskAction.TokenKey -> dataToSend(TaskAction.TokenKey).toString)
+    action.call(params, data = dataToSend, onReply = (message: InMessage, option: Option[Exception]) =>  {
       try {
         processActionResult(task, dataToSend)(message, option)
       } finally {
