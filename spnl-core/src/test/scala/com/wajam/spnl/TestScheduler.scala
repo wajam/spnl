@@ -104,6 +104,6 @@ class TestScheduler extends FunSuite with MockitoSugar {
     scheduler.endTask(mockedTask)
     stoped = true
     Thread.sleep(500)
-    tickAfterStop should be(0)
+    tickAfterStop should be <= 1
   }
 }
