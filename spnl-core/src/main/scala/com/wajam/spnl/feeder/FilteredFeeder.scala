@@ -3,7 +3,13 @@ package com.wajam.spnl.feeder
 import com.wajam.spnl.TaskContext
 import scala.annotation.tailrec
 
-class FilteredFeeder(feeder: Feeder, filter: FeederFilter) extends Feeder {
+/**
+ * Wraps an existing feeder dans implement filtering of the feeder's data based on a predicate.
+ *
+ * @param feeder The existing feeder
+ * @param filter The filtering function
+ */
+class FilteredFeeder(feeder: Feeder, filter: Feeder.FeederPredicate) extends Feeder {
   def name = feeder.name
 
   def init(context: TaskContext) {
@@ -14,7 +20,7 @@ class FilteredFeeder(feeder: Feeder, filter: FeederFilter) extends Feeder {
     @tailrec
     def filterPeek(): Option[Map[String, Any]] = {
       feeder.peek() match {
-        case Some(d) if filter.predicate(d) => Some(d)
+        case Some(d) if filter(d) => Some(d)
         case Some(d) => {
           feeder.next().map(feeder.ack(_))
           filterPeek()
@@ -29,7 +35,7 @@ class FilteredFeeder(feeder: Feeder, filter: FeederFilter) extends Feeder {
     @tailrec
     def filterNext(): Option[Map[String, Any]] = {
       feeder.next() match {
-        case Some(d) if filter.predicate(d) => Some(d)
+        case Some(d) if filter(d) => Some(d)
         case Some(d) => {
           feeder.ack(d)
           filterNext()
@@ -48,34 +54,4 @@ class FilteredFeeder(feeder: Feeder, filter: FeederFilter) extends Feeder {
     feeder.kill()
   }
 }
-
-object FilteredFeeder {
-  type FeederPredicate = Map[String,Any] => Boolean
-
-  implicit def predicateToFeederFilter(predicate: FeederPredicate): FeederFilter = FeederFilter(predicate)
-  implicit def feederToFilteredFeederUtil(feeder: Feeder): FilteredFeederUtil = new FilteredFeederUtil(feeder)
-}
-
-class FilteredFeederUtil(feeder: Feeder) {
-  import FilteredFeeder._
-
-  def withFilter(predicate: FilteredFeeder.FeederPredicate) = {
-    new FilteredFeeder(feeder, predicate)
-  }
-
-  def withFilter(filter: FeederFilter) = {
-    new FilteredFeeder(feeder, filter)
-  }
-}
-
-case class FeederFilter(predicate: FilteredFeeder.FeederPredicate) {
-  def or (otherPredicate: Map[String,Any] => Boolean) = {
-    FeederFilter(data => (this.predicate(data) || otherPredicate(data)))
-  }
-
-  def and (otherPredicate: Map[String,Any] => Boolean) = {
-    FeederFilter(data => (this.predicate(data) && otherPredicate(data)))
-  }
-}
-
 

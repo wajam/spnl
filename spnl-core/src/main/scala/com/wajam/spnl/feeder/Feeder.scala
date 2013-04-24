@@ -18,3 +18,12 @@ trait Feeder {
 
   def kill()
 }
+
+object Feeder {
+  type FeederPredicate = Map[String,Any] => Boolean
+
+  implicit def predicateToFeederFilter(predicate: FeederPredicate): FeederFilter = FeederFilter(predicate)
+  implicit def feederFilterToPredicate(filter: FeederFilter): FeederPredicate = filter.predicate
+
+  implicit def feederToFeederOps(feeder: Feeder): FeederOps = FeederOps(feeder)
+}
