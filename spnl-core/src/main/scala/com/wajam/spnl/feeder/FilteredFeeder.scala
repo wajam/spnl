@@ -51,16 +51,12 @@ class FilteredFeeder(feeder: Feeder, filter: FeederFilter) extends Feeder {
 
 object FilteredFeeder {
   type FeederPredicate = Map[String,Any] => Boolean
-  implicit def predicateToFeederFilter(predicate: FeederPredicate): FeederFilter = {
-    FeederFilter(predicate)
-  }
 
-  implicit def feederToFeederOps(feeder: Feeder): FilterFeederUtil = {
-    new FilterFeederUtil(feeder)
-  }
+  implicit def predicateToFeederFilter(predicate: FeederPredicate): FeederFilter = FeederFilter(predicate)
+  implicit def feederToFilteredFeederUtil(feeder: Feeder): FilteredFeederUtil = new FilteredFeederUtil(feeder)
 }
 
-class FilterFeederUtil(feeder: Feeder) {
+class FilteredFeederUtil(feeder: Feeder) {
   import FilteredFeeder._
 
   def withFilter(predicate: FilteredFeeder.FeederPredicate) = {
