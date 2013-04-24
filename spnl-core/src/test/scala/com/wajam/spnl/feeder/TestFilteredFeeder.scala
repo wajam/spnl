@@ -6,7 +6,7 @@ import org.scalatest.{BeforeAndAfter, FunSuite}
 import org.scalatest.mock.MockitoSugar
 import org.mockito.Mockito._
 import com.wajam.spnl.TaskContext
-import com.wajam.spnl.feeder.FilteredFeeder._
+import Feeder._
 
 @RunWith(classOf[JUnitRunner])
 class TestFilteredFeeder extends FunSuite with BeforeAndAfter with MockitoSugar {
@@ -136,8 +136,7 @@ class TestFilteredFeeder extends FunSuite with BeforeAndAfter with MockitoSugar 
     val filteredData = Map("filtered" -> "value")
     val data = Map("key" -> "value")
     val filteredFilter = mockFeeder.withFilter(
-      ((data: Map[String, Any]) => data.contains("key")).
-      or((data: Map[String, Any]) => data.contains("notKey")))
+      ((data: Map[String, Any]) => data.contains("key")) || ((data: Map[String, Any]) => data.contains("notKey")))
 
     when(mockFeeder.peek()).thenReturn(Some(filteredData), Some(data))
     when(mockFeeder.next()).thenReturn(Some(data))
@@ -149,7 +148,7 @@ class TestFilteredFeeder extends FunSuite with BeforeAndAfter with MockitoSugar 
     val filteredData = Map("filtered" -> "value")
     val data = Map("key" -> "value")
     val filteredFilter = new FilteredFeeder(mockFeeder,
-      ((data: Map[String, Any]) => data.contains("key")).and((data: Map[String, Any]) => data("key") == "value"))
+      ((data: Map[String, Any]) => data.contains("key")) && ((data: Map[String, Any]) => data("key") == "value"))
 
     when(mockFeeder.peek()).thenReturn(Some(filteredData), Some(data))
     when(mockFeeder.next()).thenReturn(Some(data))
