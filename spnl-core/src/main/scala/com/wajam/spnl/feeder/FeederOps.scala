@@ -24,11 +24,11 @@ case class FeederOps(feeder: Feeder) {
  * @param predicate the initial predicate
  */
 case class FeederFilter(predicate: Feeder.FeederPredicate) {
-  def ||(otherPredicate: Map[String,Any] => Boolean) = {
+  def ||(otherPredicate: Feeder.FeederPredicate) = {
     FeederFilter(data => (this.predicate(data) || otherPredicate(data)))
   }
 
-  def &&(otherPredicate: Map[String,Any] => Boolean) = {
+  def &&(otherPredicate: Feeder.FeederPredicate) = {
     FeederFilter(data => (this.predicate(data) && otherPredicate(data)))
   }
 }
