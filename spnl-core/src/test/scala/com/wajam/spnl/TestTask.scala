@@ -198,7 +198,8 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
       verify(mockedFeed, times(i * 2)).peek()
       verify(mockedFeed, times(1)).next()
       verify(mockedAction, times(i)).call(same(task), same(data))
-      task.advanceTime(math.pow(2, i).toLong * 1000 + 1000)
+
+      task.advanceTime((math.pow(2, i).toLong * 1000 * 1.5).toLong) // x1.5 to consider the random factor (worst case)
 
       // Tick after advancing time, should retry
       task.tick(sync = true)

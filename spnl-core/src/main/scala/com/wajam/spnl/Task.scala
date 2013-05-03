@@ -5,6 +5,7 @@ import com.wajam.nrv.Logging
 import com.yammer.metrics.scala.Instrumented
 import feeder.Feeder
 import com.wajam.nrv.utils.CurrentTime
+import Task._
 
 /**
  * Task taking data from a feeder and sending to remote action
@@ -16,10 +17,8 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
            var context: TaskContext = new TaskContext)
   extends Logging with Instrumented with CurrentTime {
 
-  val PERSISTENCE_PERIOD = 10000
-
   // Distribute in time persistence between tasks
-  private var lastPersistence: Long = System.currentTimeMillis() - util.Random.nextInt(PERSISTENCE_PERIOD)
+  private var lastPersistence: Long = System.currentTimeMillis() - util.Random.nextInt(PersistencePeriodInMS)
   private lazy val tickMeter = metrics.meter("tick", "ticks", name)
   private lazy val globalRetryCounter = metrics.counter("retry-count")
   private lazy val retryCounter = metrics.counter("retry-count", name)
@@ -70,6 +69,13 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
 
   private case class Error(data: Map[String, Any], e: Exception)
 
+  /**
+   * Attempts are used to call the Action logic.
+   * When an Attempt fails to execute its Action (error or timeout),
+   * the Attempt will stay stored and will retry to execute its Action
+   * after a randomized delay.
+   * @param data
+   */
   private class Attempt(val data: Map[String, Any]) {
     private var errorCount = 0
     private var retryCount = 0
@@ -84,7 +90,9 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
       currentRate = context.throttleRate
     }
 
-    def nextRetryTime = lastErrorTime + math.pow(2, retryCount).toLong * (1000 / context.throttleRate)
+    //the time (in ms) before next retry scales quadratically and is affected by a slight random factor
+    def nextRetryTime = lastErrorTime + math.pow(2, retryCount).toLong * (1000 / context.throttleRate) *
+      (.5 + util.Random.nextFloat())
 
     def mustRetry = errorCount > retryCount
 
@@ -130,7 +138,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
                       handleError(attempt.data, e)
                   }
                 }
-                case _ => // No attempt to retry at this time
+                case None => // No attempt to retry at this time
               }
 
               // Attempt processing data if have enough concurrent slot
@@ -158,7 +166,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
 
               // trigger persistence if we didn't been saved for PERSISTENCE_PERIOD ms
               val now = System.currentTimeMillis()
-              if (now - lastPersistence >= PERSISTENCE_PERIOD) {
+              if (now - lastPersistence >= PersistencePeriodInMS) {
                 persistence.saveTask(Task.this)
                 lastPersistence = now
               }
@@ -219,4 +227,8 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
     if (sync)
       TaskActor !? Wait
   }
+}
+
+object Task {
+  private val PersistencePeriodInMS = 10000
 }
