@@ -71,7 +71,10 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
   private case class Error(data: Map[String, Any], e: Exception)
 
   /**
-   * TODO
+   * Attempts are used to call the Action logic.
+   * When an Attempt fails to execute its Action (error or timeout),
+   * the Attempt will stay stored and will retry to execute its Action
+   * after a randomized delay.
    * @param data
    */
   private class Attempt(val data: Map[String, Any]) {
