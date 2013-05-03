@@ -91,7 +91,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
       currentRate = context.throttleRate
     }
 
-    //the time (in ms) before next retry scales quadraticaly and is affected by a slight random factor
+    //the time (in ms) before next retry scales quadratically and is affected by a slight random factor
     def nextRetryTime = lastErrorTime + math.pow(2, retryCount).toLong * (1000 / context.throttleRate) *
       (.5 + util.Random.nextFloat())
 
