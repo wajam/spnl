@@ -5,6 +5,7 @@ import com.wajam.nrv.Logging
 import com.yammer.metrics.scala.Instrumented
 import feeder.Feeder
 import com.wajam.nrv.utils.CurrentTime
+import Task._
 
 /**
  * Task taking data from a feeder and sending to remote action
@@ -15,8 +16,6 @@ import com.wajam.nrv.utils.CurrentTime
 class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersistence = NoTaskPersistence,
            var context: TaskContext = new TaskContext)
   extends Logging with Instrumented with CurrentTime {
-
-  val PersistencePeriodInMS = 10000
 
   // Distribute in time persistence between tasks
   private var lastPersistence: Long = System.currentTimeMillis() - util.Random.nextInt(PersistencePeriodInMS)
@@ -228,4 +227,8 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
     if (sync)
       TaskActor !? Wait
   }
+}
+
+object Task {
+  private val PersistencePeriodInMS = 10000
 }
