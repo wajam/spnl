@@ -57,7 +57,12 @@ class Scheduler {
     var done = false
   }
 
-  // tasks rate checker
+  /**
+   * This constructor block schedule a new task executed every 100ms.
+   * This new task periodically checks and updates the rate at which every ActionTask is executed
+   * based on that Task's rate attribute (which toggles between normal rate and throttling rate,
+   * depending on the current traffic).
+   */
   scheduledExecutor.scheduleAtFixedRate(new Runnable {
     def run() {
       var tasksCopy: Seq[ScheduledTask] = null
@@ -85,6 +90,7 @@ class Scheduler {
             }
 
             val time = scala.math.max((1000000000f / newRate).toLong, 1)
+            //replace 0 with (time * util.Random.nextFloat()).toLong?
             scheduledExecutor.scheduleAtFixedRate(task.run, 0, time, TimeUnit.NANOSECONDS)
 
             task.lastRate = newRate

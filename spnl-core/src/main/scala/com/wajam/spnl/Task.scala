@@ -164,7 +164,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
                 }
               }
 
-              // trigger persistence if we didn't been saved for PERSISTENCE_PERIOD ms
+              // trigger persistence if it hasn't been saved for PersistencePeriodInMS ms
               val now = System.currentTimeMillis()
               if (now - lastPersistence >= PersistencePeriodInMS) {
                 persistence.saveTask(Task.this)
@@ -174,7 +174,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
               case e: Exception =>
                 error("Task {} error on Tick: {}", name, e)
 
-                // We got an exception. Handle it like if we didn't have any data by throttling
+                // We got an exception. Handle it as if we had no data, by throttling the Task
                 currentRate = context.throttleRate
             }
           }
