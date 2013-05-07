@@ -31,7 +31,7 @@ class TestScheduler extends FunSuite with MockitoSugar {
     when(mockedTask.currentRate).thenReturn(1)
     scheduler.startTask(mockedTask)
 
-    Thread.sleep(300)
+    Thread.sleep(1000)
     verify(mockedTask, times(1)).tick()
   }
 
@@ -42,7 +42,7 @@ class TestScheduler extends FunSuite with MockitoSugar {
     when(mockedTask.currentRate).thenReturn(0.5)
     scheduler.startTask(mockedTask)
 
-    Thread.sleep(1300)
+    Thread.sleep(2000)
     verify(mockedTask, times(1)).tick()
   }
 
