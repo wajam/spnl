@@ -90,9 +90,11 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
       currentRate = context.throttleRate
     }
 
-    //the time (in ms) before next retry scales quadratically and is affected by a slight random factor
-    def nextRetryTime = lastErrorTime + math.pow(2, retryCount).toLong * (1000 / context.throttleRate) *
-      (.5 + util.Random.nextFloat())
+    //the time (in ms) before next retry scales exponentially and is affected by a slight random range
+    //the formula used will generate the following wait time range (for throttlerate=1) :
+    // [1,3], [2,4], [4,6], [8,10], [16,18], [32,34] [64,66]
+    def nextRetryTime = lastErrorTime + math.pow(2, retryCount-1).toLong * (1000 / context.throttleRate) +
+      (1500 * util.Random.nextFloat()).toLong
 
     def mustRetry = errorCount > retryCount
 
@@ -164,7 +166,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
                 }
               }
 
-              // trigger persistence if we didn't been saved for PERSISTENCE_PERIOD ms
+              // trigger persistence if it hasn't been saved for PersistencePeriodInMS ms
               val now = System.currentTimeMillis()
               if (now - lastPersistence >= PersistencePeriodInMS) {
                 persistence.saveTask(Task.this)
@@ -174,7 +176,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
               case e: Exception =>
                 error("Task {} error on Tick: {}", name, e)
 
-                // We got an exception. Handle it like if we didn't have any data by throttling
+                // We got an exception. Handle it as if we had no data, by throttling the Task
                 currentRate = context.throttleRate
             }
           }
