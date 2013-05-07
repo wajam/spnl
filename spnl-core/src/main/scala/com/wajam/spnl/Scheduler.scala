@@ -90,8 +90,8 @@ class Scheduler {
             }
 
             val time = scala.math.max((1000000000f / newRate).toLong, 1)
-            //replace 0 with (time * util.Random.nextFloat()).toLong?
-            scheduledExecutor.scheduleAtFixedRate(task.run, 0, time, TimeUnit.NANOSECONDS)
+            //The thread will wait a random delay between [0, time] before starting
+            scheduledExecutor.scheduleAtFixedRate(task.run, (time * util.Random.nextFloat()).toLong, time, TimeUnit.NANOSECONDS)
 
             task.lastRate = newRate
           }
