@@ -83,8 +83,6 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
     private var lastErrorTime = 0L
     @volatile
     private var retryTime = 0L
-    @volatile
-    private var lastException: Exception = null
 
     concurrentCounter += 1
 
@@ -92,7 +90,12 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
       errorCount += 1
       lastErrorTime = currentTime
       currentRate = context.throttleRate
-      lastException = e
+
+      e match {
+        case _:UnavailableException => updateUsingScatteredRandom
+        case _ => updateUsingConsistentRandom
+
+      }
     }
 
     // The time (in ms) before next retry attempt scales exponentially and is affected by a slight random range.
@@ -111,7 +114,6 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
         ExpectedUnavailableTimeInMs +                                     // Baseline Reboot Time
         math.pow(2, retryCount).toLong * (1000 / context.throttleRate) +  // exponentially increasing factor
         (ExpectedUnavailableTimeInMs * util.Random.nextFloat()).toLong    // random factor to scatter attempts
-      println("Generating a new scattered random, using retryCount=" + retryCount + " = " + (retryTime - lastErrorTime))
     }
 
     // This formula is expected to be used in all other cases.
@@ -128,7 +130,6 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
         lastErrorTime +                                                   // initial timestamp offset
         math.pow(2, retryCount).toLong * (1000 / context.throttleRate) +  // exponentially increasing factor
         (1500 * util.Random.nextFloat()).toLong                           // slight random factor to spread traffic
-      println("Generating a new consistent random, using retryCount=" + retryCount + " = " + (retryTime - lastErrorTime))
     }
 
     def mustRetry = errorCount > retryCount
@@ -140,17 +141,10 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
       retryCounter += 1
       retryCount += 1
 
-      lastException match {
-        case _:UnavailableException => updateUsingScatteredRandom
-        case _ => updateUsingConsistentRandom
-
-      }
-
       lastAttemptTime = currentTime
 
       info("Retry {} of task {} ({})", retryCount, name, dataToken(data))
-      throw new UnavailableException
-      //action.call(Task.this, data)
+      action.call(Task.this, data)
     }
 
     def done() {

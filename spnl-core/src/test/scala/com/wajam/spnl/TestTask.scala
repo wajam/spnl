@@ -12,6 +12,7 @@ import org.mockito.invocation.InvocationOnMock
 import com.yammer.metrics.scala.MetricsGroup
 import org.scalatest.matchers.ShouldMatchers._
 import com.wajam.nrv.utils.ControlableCurrentTime
+import com.wajam.nrv.UnavailableException
 
 @RunWith(classOf[JUnitRunner])
 class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
@@ -168,7 +169,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     verify(mockedAction, times(4)).call(same(task), anyObject())
   }
 
-  test("Should throttle and retry on errors") {
+  test("Should throttle and retry when generic errors occur") {
     val data = Map("token" -> "0")
     when(mockedFeed.peek()).thenReturn(Some(data))
 
@@ -199,7 +200,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
       verify(mockedFeed, times(1)).next()
       verify(mockedAction, times(i)).call(same(task), same(data))
 
-      task.advanceTime((math.pow(2, i).toLong * 1000 * 1.5).toLong) // x1.5 to consider the random factor (worst case)
+      task.advanceTime(((math.pow(2, i).toLong + 1.5) * 1000).toLong) // consider worst random case
 
       // Tick after advancing time, should retry
       task.tick(sync = true)
@@ -216,6 +217,47 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     task.currentRate should be (taskContext.normalRate)
     retryCounter.count should be(50)
     globalCounter.count should be(100)
+    verify(mockedFeed, times(2 + failCount * 2)).peek()
+    verify(mockedFeed, times(2)).next()
+    verify(mockedAction, times(failCount + 2)).call(same(task), same(data))
+  }
+
+  //this test is identical to the previous one, but it uses a different exception to trigger the alternative delay function
+  test("Should throttle in a much slower way when when UnavailableException occur") {
+    val data = Map("token" -> "0")
+    when(mockedFeed.peek()).thenReturn(Some(data))
+
+    task.currentRate should be(taskContext.normalRate)
+
+    task.tick(sync = true)
+    verify(mockedFeed, times(1)).peek()
+    verify(mockedFeed, times(1)).next()
+
+    // Failures
+    val failCount = 5
+    for (i <- 1 to failCount) {
+      task.fail(data, new UnavailableException)
+      task.tick(sync = true)
+
+      // Tick without advancing time, should not retry
+      task.currentRate should be(taskContext.throttleRate)
+      verify(mockedFeed, times(i * 2)).peek()
+      verify(mockedFeed, times(1)).next()
+      verify(mockedAction, times(i)).call(same(task), same(data))
+
+      task.advanceTime(5000 + ((5 + math.pow(2, i).toLong) * 1000).toLong) // consider worst random case
+
+      // Tick after advancing time, should retry
+      task.tick(sync = true)
+      verify(mockedFeed, times(1 + i * 2)).peek()
+      verify(mockedFeed, times(1)).next()
+      verify(mockedAction, times(i + 1)).call(same(task), same(data))
+    }
+
+    // Success!!!
+    task.tock(data)
+    task.tick(sync = true)
+    task.currentRate should be (taskContext.normalRate)
     verify(mockedFeed, times(2 + failCount * 2)).peek()
     verify(mockedFeed, times(2)).next()
     verify(mockedAction, times(failCount + 2)).call(same(task), same(data))
