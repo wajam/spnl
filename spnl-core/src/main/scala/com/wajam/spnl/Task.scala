@@ -98,7 +98,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
       }
     }
 
-    // The time (in ms) before next retry attempt scales exponentially and is affected by a slight random range.
+    // The time (in ms) before the next retry attempt scales exponentially and is affected by a slight random range.
     // There are 2 different random delay generator used, depending on the case. The examples bellow assume a throttlerate=1
     def nextRetryTime = retryTime
 
@@ -124,7 +124,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
     // unban the action by inserting increasingly longer periods of time where no spam is sent for the required
     // token.
     // Here's a sample of the data it will generate at each attempt retry:
-    // [1, 2.5], [2, 3.5], [4, 5.5], [8, 9.5], [16, 17.5], [32, 33.5], [64, 64.5], [128, 129.5], [256, 257.5]
+    // [1, 2.5], [2, 3.5], [4, 5.5], [8, 9.5], [16, 17.5], [32, 33.5], [64, 65.5], [128, 129.5], [256, 257.5]
     def updateUsingConsistentRandom {
       retryTime =
         lastErrorTime +                                                   // initial timestamp offset
