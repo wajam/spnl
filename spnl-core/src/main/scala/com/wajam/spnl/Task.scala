@@ -104,7 +104,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
 
     // This formula is expected to be used when the servers restart or shut down.
     // The idea is to let the server boot for a few seconds, and the spread all the attempts over a larger random
-    // random. If the server is down for a longer period of time, the attempts are exponentionally less frequent, and
+    // range. If the server is down for a longer period of time, the attempts are exponentionally less frequent, and
     // will not generate unecessary traffic.
     // Here's a sample of the data it will generate at each attempt retry:
     // [6,11], [7,12], [9,14], [13,18], [21,26], [37,42], [69,74], [133, 138], [261, 266]
