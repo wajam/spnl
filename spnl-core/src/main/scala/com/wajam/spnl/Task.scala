@@ -110,17 +110,17 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
     // [6,11], [7,12], [9,14], [13,18], [21,26], [37,42], [69,74], [133, 138], [261, 266]
     def updateUsingScatteredRandom {
       retryTime =
-        lastErrorTime +                                                   // initial timestamp offset
+        lastErrorTime +                                                   // Initial timestamp offset
         ExpectedUnavailableTimeInMs +                                     // Baseline Reboot Time
-        math.pow(2, retryCount).toLong * (1000 / context.throttleRate) +  // exponentially increasing factor
-        (ExpectedUnavailableTimeInMs * util.Random.nextFloat()).toLong    // random factor to scatter attempts
+        math.pow(2, retryCount).toLong * (1000 / context.throttleRate) +  // Exponentially increasing factor
+        (ExpectedUnavailableTimeInMs * util.Random.nextFloat()).toLong    // Random factor to scatter attempts
     }
 
     // This formula is expected to be used in all other cases.
     // The idea is that the server is up, but another reason caused the action to fail. Either the traffic was too much
-    // for the servers to handle or there was another exception while executing the query. To handle both cases, we
+    // for the server to handle or there was another exception while executing the query. To handle both cases, we
     // quickly attempt multiple retries early on, but add a small random delay after every attempt, spreading the
-    // attempts, while still keeping a certain coherence between all retry attempts, giving the server the chance to
+    // attempts, while still keeping a certain consistency between all retry attempts, giving the server a chance to
     // unban the action by inserting increasingly longer periods of time where no spam is sent for the required
     // token.
     // Here's a sample of the data it will generate at each attempt retry:
