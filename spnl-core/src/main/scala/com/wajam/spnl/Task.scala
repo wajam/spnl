@@ -1,7 +1,7 @@
 package com.wajam.spnl
 
 import actors.Actor
-import com.wajam.nrv.Logging
+import com.wajam.nrv.{UnavailableException, Logging}
 import com.yammer.metrics.scala.Instrumented
 import feeder.Feeder
 import com.wajam.nrv.utils.CurrentTime
@@ -84,17 +84,52 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
 
     concurrentCounter += 1
 
-    def onError() {
+    def onError(e: Exception) {
       errorCount += 1
       lastErrorTime = currentTime
       currentRate = context.throttleRate
+
+      e match {
+        case _:UnavailableException => updateUsingScatteredRandom
+        case _ => updateUsingConsistentRandom
+
+      }
     }
 
-    //the time (in ms) before next retry scales exponentially and is affected by a slight random range
-    //the formula used will generate the following wait time range (for throttlerate=1) :
-    // [1,3], [2,4], [4,6], [8,10], [16,18], [32,34] [64,66]
-    def nextRetryTime = lastErrorTime + math.pow(2, retryCount-1).toLong * (1000 / context.throttleRate) +
-      (1500 * util.Random.nextFloat()).toLong
+    // The time (in ms) before the next retry attempt scales exponentially and is affected by a slight random range.
+    // There are 2 different random delay generator used, depending on the case. The examples bellow assume a throttlerate=1
+    @volatile
+    var nextRetryTime  = 0L
+
+    // This formula is expected to be used when the servers restart or shut down.
+    // The idea is to let the server boot for a few seconds, and the spread all the attempts over a larger random
+    // range. If the server is down for a longer period of time, the attempts are exponentionally less frequent, and
+    // will not generate unecessary traffic.
+    // Here's a sample of the data it will generate at each attempt retry:
+    // [6,11], [7,12], [9,14], [13,18], [21,26], [37,42], [69,74], [133, 138], [261, 266]
+    def updateUsingScatteredRandom {
+      nextRetryTime =
+        lastErrorTime +                                                   // Initial timestamp offset
+        ExpectedUnavailableTimeInMs +                                     // Baseline Reboot Time
+        math.pow(2, retryCount).toLong * (1000 / context.throttleRate) +  // Exponentially increasing factor
+        (ExpectedUnavailableTimeInMs * util.Random.nextFloat()).toLong    // Random factor to scatter attempts
+    }
+
+    // This formula is expected to be used in all other cases.
+    // The idea is that the server is up, but another reason caused the action to fail. Either the traffic was too much
+    // for the server to handle or there was another exception while executing the query. To handle both cases, we
+    // quickly attempt multiple retries early on, but add a small random delay after every attempt, spreading the
+    // attempts, while still keeping a certain consistency between all retry attempts, giving the server a chance to
+    // unban the action by inserting increasingly longer periods of time where no spam is sent for the required
+    // token.
+    // Here's a sample of the data it will generate at each attempt retry:
+    // [1, 2.5], [2, 3.5], [4, 5.5], [8, 9.5], [16, 17.5], [32, 33.5], [64, 65.5], [128, 129.5], [256, 257.5]
+    def updateUsingConsistentRandom {
+      nextRetryTime =
+        lastErrorTime +                                                   // initial timestamp offset
+        math.pow(2, retryCount).toLong * (1000 / context.throttleRate) +  // exponentially increasing factor
+        (1500 * util.Random.nextFloat()).toLong                           // slight random factor to spread traffic
+    }
 
     def mustRetry = errorCount > retryCount
 
@@ -104,6 +139,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
       globalRetryCounter += 1
       retryCounter += 1
       retryCount += 1
+
       lastAttemptTime = currentTime
 
       info("Retry {} of task {} ({})", retryCount, name, dataToken(data))
@@ -178,6 +214,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
 
                 // We got an exception. Handle it as if we had no data, by throttling the Task
                 currentRate = context.throttleRate
+
             }
           }
           case Tock(data) => {
@@ -216,7 +253,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
     private def handleError(data: Map[String, Any], e: Exception) {
       val token = dataToken(data)
       val attempt = currentAttempts(token)
-      attempt.onError()
+      attempt.onError(e)
 
       info("Task {} ({}) got an error and will retry in {} ms (data={}): {}", name, token, attempt.nextRetryTime - currentTime, data, e)
     }
@@ -233,4 +270,8 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
 
 object Task {
   private val PersistencePeriodInMS = 10000
+  // When the Task fails and throws an Unavailable Exception,
+  // we assume waiting a short delay is requiered before
+  // the server will be available again
+  private val ExpectedUnavailableTimeInMs = 5000
 }
