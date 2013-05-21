@@ -81,8 +81,6 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
     private var retryCount = 0
     private var lastAttemptTime = currentTime
     private var lastErrorTime = 0L
-    @volatile
-    private var retryTime = 0L
 
     concurrentCounter += 1
 
@@ -100,7 +98,8 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
 
     // The time (in ms) before the next retry attempt scales exponentially and is affected by a slight random range.
     // There are 2 different random delay generator used, depending on the case. The examples bellow assume a throttlerate=1
-    def nextRetryTime = retryTime
+    @volatile
+    var nextRetryTime  = 0L
 
     // This formula is expected to be used when the servers restart or shut down.
     // The idea is to let the server boot for a few seconds, and the spread all the attempts over a larger random
@@ -109,7 +108,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
     // Here's a sample of the data it will generate at each attempt retry:
     // [6,11], [7,12], [9,14], [13,18], [21,26], [37,42], [69,74], [133, 138], [261, 266]
     def updateUsingScatteredRandom {
-      retryTime =
+      nextRetryTime =
         lastErrorTime +                                                   // Initial timestamp offset
         ExpectedUnavailableTimeInMs +                                     // Baseline Reboot Time
         math.pow(2, retryCount).toLong * (1000 / context.throttleRate) +  // Exponentially increasing factor
@@ -126,7 +125,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
     // Here's a sample of the data it will generate at each attempt retry:
     // [1, 2.5], [2, 3.5], [4, 5.5], [8, 9.5], [16, 17.5], [32, 33.5], [64, 65.5], [128, 129.5], [256, 257.5]
     def updateUsingConsistentRandom {
-      retryTime =
+      nextRetryTime =
         lastErrorTime +                                                   // initial timestamp offset
         math.pow(2, retryCount).toLong * (1000 / context.throttleRate) +  // exponentially increasing factor
         (1500 * util.Random.nextFloat()).toLong                           // slight random factor to spread traffic
