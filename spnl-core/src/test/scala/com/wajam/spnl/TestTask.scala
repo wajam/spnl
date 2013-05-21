@@ -169,18 +169,22 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     verify(mockedAction, times(4)).call(same(task), anyObject())
   }
 
-  test("Should throttle and retry when generic errors occur") {
+  def throttleTest(exceptionGenerator: () => Exception, WaitTimeGenerator: Int => Long) {
     val data = Map("token" -> "0")
     when(mockedFeed.peek()).thenReturn(Some(data))
 
+    // These metrics track the number of retry attempts (attempts that throw exceptions).
     // Setup counters initial value. They will be validated at the end to ensure they are reset to that value
-    // and not to zero
-    var retryCounter = new MetricsGroup(task.getClass).counter("retry-count", task.name)
-    var globalCounter = new MetricsGroup(task.getClass).counter("retry-count")
+    // and not to zero.
+    val retryCounter = new MetricsGroup(task.getClass).counter("retry-count", task.name)
+    val globalCounter = new MetricsGroup(task.getClass).counter("retry-count")
+    val initialOffset = retryCounter.count
+    val initialGlobalOffset = globalCounter.count
+
     retryCounter += 50
     globalCounter += 100
-    retryCounter.count should be(50)
-    globalCounter.count should be(100)
+    retryCounter.count should be(50 + initialOffset)
+    globalCounter.count should be(100 + initialGlobalOffset)
 
     task.currentRate should be(taskContext.normalRate)
 
@@ -191,7 +195,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     // Failures
     val failCount = 5
     for (i <- 1 to failCount) {
-      task.fail(data, new Exception)
+      task.fail(data, exceptionGenerator())
       task.tick(sync = true)
 
       // Tick without advancing time, should not retry
@@ -200,66 +204,34 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
       verify(mockedFeed, times(1)).next()
       verify(mockedAction, times(i)).call(same(task), same(data))
 
-      task.advanceTime(((math.pow(2, i).toLong + 1.5) * 1000).toLong) // consider worst random case
+      task.advanceTime(WaitTimeGenerator(i)) // consider worst random case
 
       // Tick after advancing time, should retry
       task.tick(sync = true)
       verify(mockedFeed, times(1 + i * 2)).peek()
       verify(mockedFeed, times(1)).next()
       verify(mockedAction, times(i + 1)).call(same(task), same(data))
-      retryCounter.count should be(50 + i)
-      globalCounter.count should be(100 + i)
+      retryCounter.count should be(50 + initialOffset + i)
+      globalCounter.count should be(100 + initialGlobalOffset + i)
     }
 
     // Success!!!
     task.tock(data)
     task.tick(sync = true)
     task.currentRate should be (taskContext.normalRate)
-    retryCounter.count should be(50)
-    globalCounter.count should be(100)
+    retryCounter.count should be(50 + initialOffset)
+    globalCounter.count should be(100 + initialGlobalOffset)
     verify(mockedFeed, times(2 + failCount * 2)).peek()
     verify(mockedFeed, times(2)).next()
     verify(mockedAction, times(failCount + 2)).call(same(task), same(data))
   }
 
+  test("Should throttle and retry when generic errors occur") {
+    throttleTest(() => {new Exception}, attempt => {((math.pow(2, attempt).toLong + 1.5) * 1000).toLong})
+  }
+
   //this test is identical to the previous one, but it uses a different exception to trigger the alternative delay function
   test("Should throttle in a much slower way when when UnavailableException occur") {
-    val data = Map("token" -> "0")
-    when(mockedFeed.peek()).thenReturn(Some(data))
-
-    task.currentRate should be(taskContext.normalRate)
-
-    task.tick(sync = true)
-    verify(mockedFeed, times(1)).peek()
-    verify(mockedFeed, times(1)).next()
-
-    // Failures
-    val failCount = 5
-    for (i <- 1 to failCount) {
-      task.fail(data, new UnavailableException)
-      task.tick(sync = true)
-
-      // Tick without advancing time, should not retry
-      task.currentRate should be(taskContext.throttleRate)
-      verify(mockedFeed, times(i * 2)).peek()
-      verify(mockedFeed, times(1)).next()
-      verify(mockedAction, times(i)).call(same(task), same(data))
-
-      task.advanceTime(5000 + ((5 + math.pow(2, i).toLong) * 1000).toLong) // consider worst random case
-
-      // Tick after advancing time, should retry
-      task.tick(sync = true)
-      verify(mockedFeed, times(1 + i * 2)).peek()
-      verify(mockedFeed, times(1)).next()
-      verify(mockedAction, times(i + 1)).call(same(task), same(data))
-    }
-
-    // Success!!!
-    task.tock(data)
-    task.tick(sync = true)
-    task.currentRate should be (taskContext.normalRate)
-    verify(mockedFeed, times(2 + failCount * 2)).peek()
-    verify(mockedFeed, times(2)).next()
-    verify(mockedAction, times(failCount + 2)).call(same(task), same(data))
+    throttleTest(() => {new UnavailableException}, attempt => {5000 + ((5 + math.pow(2, attempt).toLong) * 1000)})
   }
 }
