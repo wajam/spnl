@@ -16,7 +16,7 @@ trait CachedDataFeeder extends Feeder with Instrumented {
 
   def name: String
 
-  var cache: Queue[Map[String, Any]] = Queue()
+  private var cache: Queue[Map[String, Any]] = Queue()
 
   def peek() = {
     if (cache.isEmpty) {
