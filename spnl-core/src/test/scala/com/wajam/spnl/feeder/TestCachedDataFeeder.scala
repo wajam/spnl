@@ -13,7 +13,8 @@ class TestCachedDataFeeder extends FunSuite {
   val elem1 = Map("a" -> "b")
   val elem2 = Map("a" -> "c")
 
-  class CachedDataFeederImpl extends CachedDataFeeder("test_name") {
+  class CachedDataFeederImpl extends CachedDataFeeder {
+    val name = "test_name"
     var elems = List(elem1, elem2)
     def loadMore() = elems match {
       case x :: xs => {
