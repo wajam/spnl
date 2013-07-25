@@ -9,12 +9,14 @@ import com.yammer.metrics.scala.Instrumented
  * Date: 16/11/12
  * Time: 2:25 PM
  */
-abstract class CachedDataFeeder(val name: String) extends Feeder with Instrumented {
+trait CachedDataFeeder extends Feeder with Instrumented {
 
   lazy val loadMoreTimer = metrics.timer("load-more-time", name)
   lazy val loadMoreRecords = metrics.meter("load-more-records", "load-more-records", name)
 
-  var cache: Queue[Map[String, Any]] = Queue()
+  def name: String
+
+  private var cache: Queue[Map[String, Any]] = Queue()
 
   def peek() = {
     if (cache.isEmpty) {
