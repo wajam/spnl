@@ -88,12 +88,12 @@ class TestScheduler extends FunSuite with MockitoSugar {
     val scheduler = new Scheduler
     val mockedTask = mock[Task]
 
-    var stoped = false
+    var stopped = false
     var tickAfterStop = 0
     when(mockedTask.currentRate).thenReturn(10)
     when(mockedTask.tick(anyBoolean())).then(new Answer[Unit] {
       def answer(invocation: InvocationOnMock) {
-        if (stoped) {
+        if (stopped) {
           tickAfterStop += 1
         }
       }
@@ -102,8 +102,64 @@ class TestScheduler extends FunSuite with MockitoSugar {
     scheduler.startTask(mockedTask)
     Thread.sleep(200)
     scheduler.endTask(mockedTask)
-    stoped = true
+    stopped = true
     Thread.sleep(500)
     tickAfterStop should be <= 1
+  }
+
+  test("can stop, and restart with a task according to the rate") {
+    val scheduler = new Scheduler
+    val mockedTask = mock[Task]
+    val mockedContext = mock[TaskContext]
+
+    when(mockedTask.context).thenReturn(mockedContext)
+
+    var stopped = false
+    var tickAfterStop = 0
+    var tick = 0
+
+    when(mockedTask.tick(anyBoolean())).then(new Answer[Unit] {
+      def answer(invocation: InvocationOnMock) {
+        if (stopped) {
+          tickAfterStop += 1
+        }
+
+        tick += 1
+      }
+    })
+
+    val rate = 100
+
+    when(mockedContext.normalRate).thenReturn(rate)
+    when(mockedTask.currentRate).thenReturn(rate)
+
+    // Start at rate 100
+    scheduler.startTask(mockedTask)
+
+    // Check if it ticked
+    Thread.sleep(500)
+    tick should be >= 10
+
+    // Stop with rate
+    when(mockedContext.normalRate).thenReturn(0)
+    when(mockedTask.currentRate).thenReturn(0)
+
+    // Wait to sure we don't pick rogue tick
+    Thread.sleep(500)
+    stopped = true
+    val firstRunTick = tick
+
+    Thread.sleep(500)
+    tickAfterStop should be(0)
+
+    // Restart
+    when(mockedContext.normalRate).thenReturn(rate)
+    when(mockedTask.currentRate).thenReturn(rate)
+
+    Thread.sleep(500)
+
+    // Check if it ticked
+    val secondRunTick = tick - firstRunTick
+    secondRunTick should be >= 10
   }
 }
