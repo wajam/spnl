@@ -59,6 +59,7 @@ class Scheduler {
 
   /**
    * This constructor block schedule a new task executed every 100ms.
+   *
    * This new task periodically checks and updates the rate at which every ActionTask is executed
    * based on that Task's rate attribute (which toggles between normal rate and throttling rate,
    * depending on the current traffic).
@@ -71,9 +72,21 @@ class Scheduler {
       }
 
       for (task <- tasksCopy) {
+
+        val realTask = task.realTask
+
         task.synchronized {
-          val newRate = task.realTask.currentRate
+
+          // Check the new rate. it's either the currently set rate, in order to adjust it. Or it's the normal rate in
+          // case the rate was 0 (disabled before and thus no longer updated)
+          val newRate =
+            if (realTask.currentRate > 0)
+              realTask.currentRate
+            else
+              realTask.context.normalRate
+
           if (newRate != task.lastRate) {
+
             val taskRunner = task.run
             if (taskRunner != null) {
               taskRunner.done = true
@@ -89,9 +102,11 @@ class Scheduler {
               }
             }
 
-            val time = scala.math.max((1000000000f / newRate).toLong, 1)
-            //The thread will wait a random delay between [0, time] before starting
-            scheduledExecutor.scheduleAtFixedRate(task.run, (time * util.Random.nextFloat()).toLong, time, TimeUnit.NANOSECONDS)
+            if (newRate != 0) {
+              val time = scala.math.max((1000000000f / newRate).toLong, 1)
+              //The thread will wait a random delay between [0, time] before starting
+              scheduledExecutor.scheduleAtFixedRate(task.run, (time * util.Random.nextFloat()).toLong, time, TimeUnit.NANOSECONDS)
+            }
 
             task.lastRate = newRate
           }
