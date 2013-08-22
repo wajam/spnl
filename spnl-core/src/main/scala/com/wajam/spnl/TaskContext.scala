@@ -9,9 +9,9 @@ import com.wajam.spnl.TaskContext._
  * Task running context
  */
 case class TaskContext(var data:Map[String, Any] = Map[String, Any](),
-                       var normalRate: Double = 1,
-                       var throttleRate: Double = 1,
-                       var maxConcurrent: Double = 5) {
+                       var normalRate:Int = 1,
+                       var throttleRate:Int = 1,
+                       var maxConcurrent: Int = 5) {
   def toJson: String = {
     new String(jasonCodec.encode(JObject(List(JField("data", JsonCodec.toJValue(data)))), Encoding))
   }

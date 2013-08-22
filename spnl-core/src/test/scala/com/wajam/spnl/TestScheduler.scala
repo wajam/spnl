@@ -35,17 +35,6 @@ class TestScheduler extends FunSuite with MockitoSugar {
     verify(mockedTask, times(1)).tick()
   }
 
-  test("10 seconds") {
-    val scheduler = new Scheduler
-    val mockedTask = mock[Task]
-
-    when(mockedTask.currentRate).thenReturn(0.1)
-    scheduler.startTask(mockedTask)
-
-    Thread.sleep(10000)
-    verify(mockedTask, times(1)).tick()
-  }
-
   test("rate less than 1 per second") {
     val scheduler = new Scheduler
     val mockedTask = mock[Task]
