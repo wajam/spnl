@@ -111,7 +111,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
       nextRetryTime =
         lastErrorTime +                                                   // Initial timestamp offset
         ExpectedUnavailableTimeInMs +                                     // Baseline Reboot Time
-        math.pow(2, retryCount).toLong * (1000 / context.throttleRate) +  // Exponentially increasing factor
+        math.pow(2, retryCount).toLong * (1000 / context.throttleRate).toLong +  // Exponentially increasing factor
         (ExpectedUnavailableTimeInMs * util.Random.nextFloat()).toLong    // Random factor to scatter attempts
     }
 
@@ -127,7 +127,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
     def updateUsingConsistentRandom {
       nextRetryTime =
         lastErrorTime +                                                   // initial timestamp offset
-        math.pow(2, retryCount).toLong * (1000 / context.throttleRate) +  // exponentially increasing factor
+        math.pow(2, retryCount).toLong * (1000 / context.throttleRate).toLong +  // exponentially increasing factor
         (1500 * util.Random.nextFloat()).toLong                           // slight random factor to spread traffic
     }
 
