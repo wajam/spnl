@@ -62,7 +62,7 @@ class TestScheduler extends FunSuite with MockitoSugar {
     val mockedTask = mock[Task]
 
     var rate = 100
-    when(mockedTask.currentRate).then(new Answer[Int] {
+    when(mockedTask.currentRate).thenAnswer(new Answer[Int] {
       def answer(invocation: InvocationOnMock) = rate
     })
 
@@ -80,7 +80,7 @@ class TestScheduler extends FunSuite with MockitoSugar {
     val mockedTask = mock[Task]
 
     var rate = 100
-    when(mockedTask.currentRate).then(new Answer[Int] {
+    when(mockedTask.currentRate).thenAnswer(new Answer[Int] {
       def answer(invocation: InvocationOnMock) = rate
     })
 
@@ -102,7 +102,7 @@ class TestScheduler extends FunSuite with MockitoSugar {
     var stopped = false
     var tickAfterStop = 0
     when(mockedTask.currentRate).thenReturn(10)
-    when(mockedTask.tick(anyBoolean())).then(new Answer[Unit] {
+    when(mockedTask.tick(anyBoolean())).thenAnswer(new Answer[Unit] {
       def answer(invocation: InvocationOnMock) {
         if (stopped) {
           tickAfterStop += 1
@@ -129,7 +129,7 @@ class TestScheduler extends FunSuite with MockitoSugar {
     var tickAfterStop = 0
     var tick = 0
 
-    when(mockedTask.tick(anyBoolean())).then(new Answer[Unit] {
+    when(mockedTask.tick(anyBoolean())).thenAnswer(new Answer[Unit] {
       def answer(invocation: InvocationOnMock) {
         if (stopped) {
           tickAfterStop += 1

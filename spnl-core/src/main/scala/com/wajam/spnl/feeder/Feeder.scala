@@ -1,6 +1,7 @@
 package com.wajam.spnl.feeder
 
 import com.wajam.spnl.TaskContext
+import scala.language.implicitConversions
 
 /**
  * Task feeder which acts like an iterator that produces a map of data.
