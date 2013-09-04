@@ -58,7 +58,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
 
   test("when feeder returns no data or an exception, task should throttle") {
     var feedNext: () => Option[Map[String, Any]] = null
-    when(mockedFeed.peek()).then(new Answer[Option[Map[String, Any]]] {
+    when(mockedFeed.peek()).thenAnswer(new Answer[Option[Map[String, Any]]] {
       def answer(invocation: InvocationOnMock) = feedNext()
     })
 
@@ -88,7 +88,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   test("when feeder gives tokens, should not process two tasks with same token") {
     val data = Map("token" -> "asdf")
     val feedNext: () => Option[Map[String, Any]] = () => Some(data)
-    when(mockedFeed.peek()).then(new Answer[Option[Map[String, Any]]] {
+    when(mockedFeed.peek()).thenAnswer(new Answer[Option[Map[String, Any]]] {
       def answer(invocation: InvocationOnMock) = feedNext()
     })
 
@@ -108,7 +108,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   test("should not process more than max concurrent process") {
     var data = Map("token" -> "0")
     val feedNext: () => Option[Map[String, Any]] = () => Some(data)
-    when(mockedFeed.peek()).then(new Answer[Option[Map[String, Any]]] {
+    when(mockedFeed.peek()).thenAnswer(new Answer[Option[Map[String, Any]]] {
       def answer(invocation: InvocationOnMock) = feedNext()
     })
 
