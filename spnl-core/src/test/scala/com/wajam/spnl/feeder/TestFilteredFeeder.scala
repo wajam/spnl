@@ -135,7 +135,7 @@ class TestFilteredFeeder extends FunSuite with BeforeAndAfter with MockitoSugar 
   test("should support OR predicate") {
     val filteredData = Map("filtered" -> "value")
     val data = Map("key" -> "value")
-    val filteredFilter = mockFeeder.withFilter(
+    val filteredFilter = FeederOps(mockFeeder).withFilter(
       ((data: Map[String, Any]) => data.contains("key")) || ((data: Map[String, Any]) => data.contains("notKey")))
 
     when(mockFeeder.peek()).thenReturn(Some(filteredData), Some(data))
