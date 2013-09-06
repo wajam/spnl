@@ -2,6 +2,7 @@ package com.wajam.spnl.feeder
 
 import com.wajam.spnl.TaskContext
 import scala.language.implicitConversions
+import com.wajam.nrv.utils.Closable
 
 /**
  * Task feeder which acts like an iterator that produces a map of data.
@@ -27,4 +28,15 @@ object Feeder {
   implicit def feederFilterToPredicate(filter: FeederFilter): FeederPredicate = filter.predicate
 
   implicit def feederToFeederOps(feeder: Feeder): FeederOps = FeederOps(feeder)
+
+  implicit def feederToIterator(feeder: Feeder): Iterator[Option[Map[String, Any]]] with Closable = {
+
+    new Iterator[Option[Map[String, Any]]] with Closable {
+      def hasNext = true
+
+      def next() = feeder.next()
+
+      def close() = feeder.kill()
+    }
+  }
 }
