@@ -20,9 +20,9 @@ case class TaskContext(var data:Map[String, Any] = Map[String, Any](),
 
     val items = List(
       JField("data", JsonCodec.toJValue(data)),
-      JField("normalRate", JsonCodec.toJValue(normalRate)),
-      JField("throttleRate", JsonCodec.toJValue(throttleRate)),
-      JField("maxConcurrent", JsonCodec.toJValue(maxConcurrent)))
+      JField("normal_rate", JsonCodec.toJValue(normalRate)),
+      JField("throttle_rate", JsonCodec.toJValue(throttleRate)),
+      JField("max_concurrent", JsonCodec.toJValue(maxConcurrent)))
 
     new String(jsonCodec.encode(JObject(items), Encoding))
   }
@@ -31,9 +31,9 @@ case class TaskContext(var data:Map[String, Any] = Map[String, Any](),
     val values = jsonCodec.decode(json.getBytes, Encoding).asInstanceOf[JObject].values
 
     data = values("data").asInstanceOf[Map[String, Any]]
-    values.get("normalRate").map(v => normalRate = v.asInstanceOf[Double])
-    values.get("throttleRate").map(v => throttleRate = v.asInstanceOf[Double])
-    values.get("maxConcurrent").map(v => maxConcurrent = v.asInstanceOf[BigInt].toInt)
+    values.get("normal_rate").map(v => normalRate = v.asInstanceOf[Double])
+    values.get("throttle_tate").map(v => throttleRate = v.asInstanceOf[Double])
+    values.get("max_concurrent").map(v => maxConcurrent = v.asInstanceOf[BigInt].toInt)
   }
 }
 
