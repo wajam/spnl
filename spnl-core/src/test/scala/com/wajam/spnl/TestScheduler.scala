@@ -1,6 +1,6 @@
 package com.wajam.spnl
 
-import org.scalatest.FunSuite
+import org.scalatest.{BeforeAndAfter, FunSuite}
 import org.scalatest.junit.JUnitRunner
 import org.junit.runner.RunWith
 import org.mockito.Matchers._
@@ -11,11 +11,20 @@ import org.mockito.stubbing.Answer
 import org.mockito.invocation.InvocationOnMock
 
 @RunWith(classOf[JUnitRunner])
-class TestScheduler extends FunSuite with MockitoSugar {
+class TestScheduler extends FunSuite with BeforeAndAfter with MockitoSugar {
+
+  var scheduler: Scheduler = null
+  var mockedTask: Task = null
+
+  after {
+    // Ensure cleanup
+    if (scheduler != null && mockedTask != null)
+      scheduler.endTask(mockedTask)
+  }
 
   test("miliseconds") {
-    val scheduler = new Scheduler
-    val mockedTask = mock[Task]
+    scheduler = new Scheduler
+    mockedTask = mock[Task]
 
     when(mockedTask.currentRate).thenReturn(1000)
     scheduler.startTask(mockedTask)
@@ -25,8 +34,8 @@ class TestScheduler extends FunSuite with MockitoSugar {
   }
 
   test("seconds") {
-    val scheduler = new Scheduler
-    val mockedTask = mock[Task]
+    scheduler = new Scheduler
+    mockedTask = mock[Task]
 
     when(mockedTask.currentRate).thenReturn(1)
     scheduler.startTask(mockedTask)
@@ -36,8 +45,8 @@ class TestScheduler extends FunSuite with MockitoSugar {
   }
 
   test("10 seconds") {
-    val scheduler = new Scheduler
-    val mockedTask = mock[Task]
+    scheduler = new Scheduler
+    mockedTask = mock[Task]
 
     when(mockedTask.currentRate).thenReturn(0.1)
     scheduler.startTask(mockedTask)
@@ -47,8 +56,8 @@ class TestScheduler extends FunSuite with MockitoSugar {
   }
 
   test("rate less than 1 per second") {
-    val scheduler = new Scheduler
-    val mockedTask = mock[Task]
+    scheduler = new Scheduler
+    mockedTask = mock[Task]
 
     when(mockedTask.currentRate).thenReturn(0.5)
     scheduler.startTask(mockedTask)
@@ -58,8 +67,8 @@ class TestScheduler extends FunSuite with MockitoSugar {
   }
 
   test("miliseconds to micro switch") {
-    val scheduler = new Scheduler
-    val mockedTask = mock[Task]
+    scheduler = new Scheduler
+    mockedTask = mock[Task]
 
     var rate = 100
     when(mockedTask.currentRate).thenAnswer(new Answer[Int] {
@@ -76,10 +85,10 @@ class TestScheduler extends FunSuite with MockitoSugar {
   }
 
   test("Same task added") {
-    val scheduler = new Scheduler
-    val mockedTask = mock[Task]
+    scheduler = new Scheduler
+    mockedTask = mock[Task]
 
-    var rate = 100
+    val rate = 100
     when(mockedTask.currentRate).thenAnswer(new Answer[Int] {
       def answer(invocation: InvocationOnMock) = rate
     })
@@ -96,8 +105,8 @@ class TestScheduler extends FunSuite with MockitoSugar {
   }
 
   test("end task should not call task anymore") {
-    val scheduler = new Scheduler
-    val mockedTask = mock[Task]
+    scheduler = new Scheduler
+    mockedTask = mock[Task]
 
     var stopped = false
     var tickAfterStop = 0
@@ -119,8 +128,8 @@ class TestScheduler extends FunSuite with MockitoSugar {
   }
 
   test("can stop, and restart with a task according to the rate") {
-    val scheduler = new Scheduler
-    val mockedTask = mock[Task]
+    scheduler = new Scheduler
+    mockedTask = mock[Task]
     val mockedContext = mock[TaskContext]
 
     when(mockedTask.context).thenReturn(mockedContext)
