@@ -18,7 +18,7 @@ class TestTaskContext extends FunSuite {
 
   test("parse from json include extra config") {
     val expected = TaskContext(normalRate=4, throttleRate=5, maxConcurrent=6, data=Map("1" -> "one", "2" -> "two", "3" -> "three"))
-    val json = """{"normalRate":4.0,"throttleRate":5.0,"maxConcurrent":6,"data":{"1":"one","2":"two","3":"three"}}"""
+    val json = """{"normal_rate":4.0,"throttle_rate":5.0,"max_concurrent":6,"data":{"1":"one","2":"two","3":"three"}}"""
     val actual = TaskContext()
     actual.updateFromJson(json)
     actual should be (expected)
@@ -33,7 +33,7 @@ class TestTaskContext extends FunSuite {
   }
 
   test("save to json") {
-    val expected = """{"data":{"seq":["a","b","c"],"num":1234567890,"str":"1234567890"},"normalRate":1.0,"throttleRate":1.0,"maxConcurrent":5}"""
+    val expected = """{"data":{"seq":["a","b","c"],"num":1234567890,"str":"1234567890"},"normal_rate":1.0,"throttle_rate":1.0,"max_concurrent":5}"""
     val task = TaskContext(Map("seq" -> Seq("a", "b", "c"), "num" -> 1234567890, "str" -> "1234567890"))
     val actual = task.toJson
 

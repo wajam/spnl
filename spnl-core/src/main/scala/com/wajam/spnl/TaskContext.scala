@@ -32,7 +32,7 @@ case class TaskContext(var data:Map[String, Any] = Map[String, Any](),
 
     data = values("data").asInstanceOf[Map[String, Any]]
     values.get("normal_rate").map(v => normalRate = v.asInstanceOf[Double])
-    values.get("throttle_tate").map(v => throttleRate = v.asInstanceOf[Double])
+    values.get("throttle_rate").map(v => throttleRate = v.asInstanceOf[Double])
     values.get("max_concurrent").map(v => maxConcurrent = v.asInstanceOf[BigInt].toInt)
   }
 }
