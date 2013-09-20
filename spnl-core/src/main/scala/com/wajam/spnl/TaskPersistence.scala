@@ -3,7 +3,7 @@ package com.wajam.spnl
 import com.wajam.nrv.service.{Service, ServiceMember}
 
 /**
- * Persists tasks and their datazz
+ * Persists tasks and their datazzz
  */
 trait TaskPersistence {
   def saveTask(task: Task)
