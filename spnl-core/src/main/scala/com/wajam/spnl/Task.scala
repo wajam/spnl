@@ -26,7 +26,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
   private lazy val processedCounter = metrics.counter("processed-count", name)
 
   @volatile
-  var currentRate: Double = context.normalRate
+  var currentRate: Double = 0.0
 
   private var currentAttempts: Map[String, Attempt] = Map()
 
@@ -37,6 +37,10 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
   val name = feeder.name
 
   def start() {
+
+    // Make sure currentRate is synced with TaskContext
+    currentRate = context.normalRate
+
     this.feeder.init(this.context)
     TaskActor.start()
   }
