@@ -4,8 +4,8 @@ import actors.Actor
 import com.wajam.nrv.{UnavailableException, Logging}
 import com.yammer.metrics.scala.Instrumented
 import feeder.Feeder
-import com.wajam.nrv.utils.CurrentTime
 import Task._
+import com.wajam.commons.CurrentTime
 
 /**
  * Task taking data from a feeder and sending to remote action

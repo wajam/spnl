@@ -18,6 +18,7 @@ object SpnlBuild extends Build {
   )
 
   var commonDeps = Seq(
+    "com.wajam" %% "commons-core" % "0.1-SNAPSHOT",
     "com.wajam" %% "nrv-core" % "0.1-SNAPSHOT",
     "com.wajam" %% "nrv-extension" % "0.1-SNAPSHOT",
     "com.wajam" %% "nrv-zookeeper" % "0.1-SNAPSHOT",
