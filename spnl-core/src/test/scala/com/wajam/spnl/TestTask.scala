@@ -11,8 +11,8 @@ import org.mockito.stubbing.Answer
 import org.mockito.invocation.InvocationOnMock
 import com.yammer.metrics.scala.MetricsGroup
 import org.scalatest.matchers.ShouldMatchers._
-import com.wajam.nrv.utils.ControlableCurrentTime
 import com.wajam.nrv.UnavailableException
+import com.wajam.commons.ControlableCurrentTime
 
 @RunWith(classOf[JUnitRunner])
 class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
