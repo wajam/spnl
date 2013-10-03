@@ -34,7 +34,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   }
 
   test("when a task is ticked, action is called when next value from feeder") {
-    when(mockedFeed.peek()).thenReturn(Some(TaskData(0, 0, Map("k" -> "val"))))
+    when(mockedFeed.peek()).thenReturn(Some(TaskData(0, Map("k" -> "val"), 0)))
 
     task.tick(sync = true)
     verify(mockedFeed).peek()
@@ -43,7 +43,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   }
 
   test("task kill") {
-    when(mockedFeed.peek()).thenReturn(Some(TaskData(0, 0, Map("k" -> "val"))))
+    when(mockedFeed.peek()).thenReturn(Some(TaskData(0, Map("k" -> "val"), 0)))
 
     task.kill()
     task.tick(sync = false)
@@ -86,7 +86,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   }
 
   test("when feeder gives tokens, should not process two tasks with same token") {
-    val data = TaskData(123, 0)
+    val data = TaskData(123)
     val feedNext: () => Option[TaskData] = () => Some(data)
     when(mockedFeed.peek()).thenAnswer(new Answer[Option[TaskData]] {
       def answer(invocation: InvocationOnMock) = feedNext()

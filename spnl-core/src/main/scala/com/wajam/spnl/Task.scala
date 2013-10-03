@@ -77,8 +77,11 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
    * @param data
    */
   private class Attempt(val data: TaskData) {
+    // At this step data.retryCount must be 0, since this is the first attempt.
+    assert(data.retryCount == 0)
+
+    private var retryCount = 0
     private var errorCount = 0
-    private var retryCount = data.retryCount
     private var lastAttemptTime = currentTime
     private var lastErrorTime = 0L
 
@@ -278,5 +281,5 @@ object Task {
 
 case class TaskData(
   token: Long,
-  retryCount: Int = 0,
-  fields: Map[String, Any] = Map())
+  values: Map[String, Any] = Map(),
+  retryCount: Int = 0)

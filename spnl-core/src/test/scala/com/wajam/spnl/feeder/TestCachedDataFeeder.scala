@@ -10,8 +10,8 @@ import org.scalatest.FunSuite
  */
 class TestCachedDataFeeder extends FunSuite {
 
-  val elem1 = TaskData(token = 0, fields = Map("a" -> "b"))
-  val elem2 = TaskData(token = 0, fields = Map("a" -> "c"))
+  val elem1 = TaskData(token = 0, values = Map("a" -> "b"))
+  val elem2 = TaskData(token = 0, values = Map("a" -> "c"))
 
   class CachedDataFeederImpl extends CachedDataFeeder {
     val name = "test_name"
