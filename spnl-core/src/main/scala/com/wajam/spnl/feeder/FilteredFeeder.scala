@@ -1,6 +1,6 @@
 package com.wajam.spnl.feeder
 
-import com.wajam.spnl.TaskContext
+import com.wajam.spnl.{TaskData, TaskContext}
 import scala.annotation.tailrec
 
 /**
@@ -18,7 +18,7 @@ class FilteredFeeder(feeder: Feeder, filter: Feeder.FeederPredicate) extends Fee
 
   def peek() = {
     @tailrec
-    def filterPeek(): Option[Map[String, Any]] = {
+    def filterPeek(): Option[TaskData] = {
       feeder.peek() match {
         case Some(d) if filter(d) => Some(d)
         case Some(d) => {
@@ -33,7 +33,7 @@ class FilteredFeeder(feeder: Feeder, filter: Feeder.FeederPredicate) extends Fee
 
   def next() = {
     @tailrec
-    def filterNext(): Option[Map[String, Any]] = {
+    def filterNext(): Option[TaskData] = {
       feeder.next() match {
         case Some(d) if filter(d) => Some(d)
         case Some(d) => {
@@ -46,7 +46,7 @@ class FilteredFeeder(feeder: Feeder, filter: Feeder.FeederPredicate) extends Fee
     filterNext()
   }
 
-  def ack(data: Map[String, Any]) {
+  def ack(data: TaskData) {
     feeder.ack(data)
   }
 

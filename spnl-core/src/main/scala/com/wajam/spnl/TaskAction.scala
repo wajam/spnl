@@ -23,7 +23,7 @@ class TaskAction(val name: String, val action: Action) extends Logging with Inst
         responseTimeout = Some(responseTimeout), resolver = Some(TaskAction.TokenResolver))))
   }
 
-  protected[spnl] def processActionResult(task: Task, data: Map[String, Any])
+  protected[spnl] def processActionResult(task: Task, data: TaskData)
                                          (msg: InMessage, optException: Option[Exception]) {
     optException match {
       case Some(e) => {
@@ -38,11 +38,11 @@ class TaskAction(val name: String, val action: Action) extends Logging with Inst
     }
   }
 
-  protected[spnl] def call(task: Task, dataToSend: Map[String, Any]) {
+  protected[spnl] def call(task: Task, dataToSend: TaskData) {
     callsMeter.mark()
     val timer = executeTime.timerContext()
 
-    val params : Map[String, MValue] = Map(TaskAction.TokenKey -> dataToSend(TaskAction.TokenKey).toString)
+    val params : Map[String, MValue] = Map(TaskAction.TokenKey -> dataToSend.token)
     action.call(params, data = dataToSend, onReply = (message: InMessage, option: Option[Exception]) =>  {
       try {
         processActionResult(task, dataToSend)(message, option)
