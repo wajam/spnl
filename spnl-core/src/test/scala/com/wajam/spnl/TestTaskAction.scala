@@ -22,7 +22,7 @@ class TestTaskAction extends FunSuite with MockitoSugar with OneInstancePerTest 
 
   test("should call task fail when callback has exception") {
     val e = new Exception
-    val data: Map[String, Any] = Map()
+    val data = TaskData(0)
     taskAction.processActionResult(task, data)(msg, Some(e))
     verify(task).fail(data, e)
     verifyNoMoreInteractions(task)
@@ -30,7 +30,7 @@ class TestTaskAction extends FunSuite with MockitoSugar with OneInstancePerTest 
   }
 
   test("should do nothing if no exception returned") {
-    val data: Map[String, Any] = Map()
+    val data = TaskData(0)
     taskAction.processActionResult(task, data)(msg, None)
     verify(task).tock(data)
     verifyNoMoreInteractions(task)

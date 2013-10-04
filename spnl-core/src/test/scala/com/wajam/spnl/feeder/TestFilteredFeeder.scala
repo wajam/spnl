@@ -5,7 +5,7 @@ import org.scalatest.junit.JUnitRunner
 import org.scalatest.{BeforeAndAfter, FunSuite}
 import org.scalatest.mock.MockitoSugar
 import org.mockito.Mockito._
-import com.wajam.spnl.TaskContext
+import com.wajam.spnl.{TaskData, TaskContext}
 import Feeder._
 
 @RunWith(classOf[JUnitRunner])
@@ -19,7 +19,7 @@ class TestFilteredFeeder extends FunSuite with BeforeAndAfter with MockitoSugar 
 
   test("filtered feeder name should be the same as the wrapped feeder") {
     val name = "name"
-    val filteredFilter = mockFeeder.withFilter((data: Map[String, Any]) => true)
+    val filteredFilter = mockFeeder.withFilter((data: TaskData) => true)
     when(mockFeeder.name).thenReturn(name)
 
     assert(filteredFilter.name === name)
@@ -27,46 +27,46 @@ class TestFilteredFeeder extends FunSuite with BeforeAndAfter with MockitoSugar 
 
   test("filtered feeder init should call wrapped feeder init") {
     val taskContext = new TaskContext()
-    val filteredFilter = mockFeeder.withFilter((data: Map[String, Any]) => true)
+    val filteredFilter = mockFeeder.withFilter((data: TaskData) => true)
 
     filteredFilter.init(taskContext)
     verify(mockFeeder).init(taskContext)
   }
 
   test("filtered feeder kill should call wrapped feeder kill") {
-    val filteredFilter =  mockFeeder.withFilter((data: Map[String, Any]) => true)
+    val filteredFilter =  mockFeeder.withFilter((data: TaskData) => true)
 
     filteredFilter.kill()
     verify(mockFeeder).kill()
   }
 
   test("filtered feeder ack should call wrapped feeder ack") {
-    val data = Map("key" -> "value")
-    val filteredFilter =  mockFeeder.withFilter((data: Map[String, Any]) => true)
+    val data = TaskData(token = 0, values = Map("key" -> "value"))
+    val filteredFilter =  mockFeeder.withFilter((data: TaskData) => true)
 
     filteredFilter.ack(data)
     verify(mockFeeder).ack(data)
   }
 
   test("filtered feeder peek method should return None if peek returns None") {
-    val filteredFilter = mockFeeder.withFilter((data: Map[String, Any]) => data.contains("key"))
+    val filteredFilter = mockFeeder.withFilter((data: TaskData) => data.values.contains("key"))
 
     when(mockFeeder.peek()).thenReturn(None)
     assert(filteredFilter.peek() === None)
   }
 
   test("filtered feeder peek method should return data if peeked data satisfies the predicate") {
-    val data = Map("key" -> "value")
-    val filteredFilter = mockFeeder.withFilter((data: Map[String, Any]) => data.contains("key"))
+    val data = TaskData(token = 0, values = Map("key" -> "value"))
+    val filteredFilter = mockFeeder.withFilter((data: TaskData) => data.values.contains("key"))
 
     when(mockFeeder.peek()).thenReturn(Some(data))
     assert(filteredFilter.peek() === Some(data))
   }
 
   test("filtered feeder peek method should return the first data that satisfy the predicate") {
-    val filteredData = Map("notkey" -> "value")
-    val data = Map("key" -> "value")
-    val filteredFilter = mockFeeder.withFilter((data: Map[String, Any]) => data.contains("key"))
+    val filteredData = TaskData(token = 0, values = Map("notkey" -> "value"))
+    val data = TaskData(token = 0, values = Map("key" -> "value"))
+    val filteredFilter = mockFeeder.withFilter((data: TaskData) => data.values.contains("key"))
 
     when(mockFeeder.peek()).thenReturn(Some(filteredData), Some(data))
     when(mockFeeder.next()).thenReturn(Some(filteredData))
@@ -78,9 +78,9 @@ class TestFilteredFeeder extends FunSuite with BeforeAndAfter with MockitoSugar 
   }
 
   test("filtered feeder peek method should return None if no data satisfy the predicate") {
-    val filteredData = Map("notkey" -> "value")
-    val data = Map("key" -> "value")
-    val filteredFilter = mockFeeder.withFilter((data: Map[String, Any]) => false)
+    val filteredData = TaskData(token = 0, values = Map("notkey" -> "value"))
+    val data = TaskData(token = 0, values = Map("key" -> "value"))
+    val filteredFilter = mockFeeder.withFilter((data: TaskData) => false)
 
     when(mockFeeder.peek()).thenReturn(Some(filteredData), Some(data), None)
     when(mockFeeder.next()).thenReturn(Some(filteredData), Some(data))
@@ -93,24 +93,24 @@ class TestFilteredFeeder extends FunSuite with BeforeAndAfter with MockitoSugar 
   }
 
   test("filtered feeder next method should return None next returns None") {
-    val filteredFilter = mockFeeder.withFilter((data: Map[String, Any]) => data.contains("key"))
+    val filteredFilter = mockFeeder.withFilter((data: TaskData) => data.values.contains("key"))
 
     when(mockFeeder.next()).thenReturn(None)
     assert(filteredFilter.next() === None)
   }
 
   test("filtered feeder next method should return data if next data satisfies the predicate") {
-    val data = Map("key" -> "value")
-    val filteredFilter = mockFeeder.withFilter((data: Map[String, Any]) => data.contains("key"))
+    val data = TaskData(token = 0, values = Map("key" -> "value"))
+    val filteredFilter = mockFeeder.withFilter((data: TaskData) => data.values.contains("key"))
 
     when(mockFeeder.next()).thenReturn(Some(data))
     assert(filteredFilter.next() === Some(data))
   }
 
   test("filtered feeder next method should return the first data that satisfy the predicate") {
-    val filteredData = Map("notkey" -> "value")
-    val data = Map("key" -> "value")
-    val filteredFilter = mockFeeder.withFilter((data: Map[String, Any]) => data.contains("key"))
+    val filteredData = TaskData(token = 0, values = Map("notkey" -> "value"))
+    val data = TaskData(token = 0, values = Map("key" -> "value"))
+    val filteredFilter = mockFeeder.withFilter((data: TaskData) => data.values.contains("key"))
 
     when(mockFeeder.next()).thenReturn(Some(filteredData), Some(data))
     assert(filteredFilter.next() === Some(data))
@@ -120,9 +120,9 @@ class TestFilteredFeeder extends FunSuite with BeforeAndAfter with MockitoSugar 
   }
 
   test("filtered feeder next method should return None if no data satisfy the predicate") {
-    val filteredData = Map("notkey" -> "value")
-    val data = Map("key" -> "value")
-    val filteredFilter = mockFeeder.withFilter((data: Map[String, Any]) => false)
+    val filteredData = TaskData(token = 0, values = Map("notkey" -> "value"))
+    val data = TaskData(token = 0, values = Map("key" -> "value"))
+    val filteredFilter = mockFeeder.withFilter((data: TaskData) => false)
 
     when(mockFeeder.next()).thenReturn(Some(filteredData), Some(data), None)
     assert(filteredFilter.next() === None)
@@ -133,10 +133,10 @@ class TestFilteredFeeder extends FunSuite with BeforeAndAfter with MockitoSugar 
   }
 
   test("should support OR predicate") {
-    val filteredData = Map("filtered" -> "value")
-    val data = Map("key" -> "value")
+    val filteredData = TaskData(token = 0, values = Map("filtered" -> "value"))
+    val data = TaskData(token = 0, values = Map("key" -> "value"))
     val filteredFilter = mockFeeder.withFilter(
-      ((data: Map[String, Any]) => data.contains("key")) || ((data: Map[String, Any]) => data.contains("notKey")))
+      ((data: TaskData) => data.values.contains("key")) || ((data: TaskData) => data.values.contains("notKey")))
 
     when(mockFeeder.peek()).thenReturn(Some(filteredData), Some(data))
     when(mockFeeder.next()).thenReturn(Some(data))
@@ -145,10 +145,10 @@ class TestFilteredFeeder extends FunSuite with BeforeAndAfter with MockitoSugar 
   }
 
   test("should support AND predicate") {
-    val filteredData = Map("filtered" -> "value")
-    val data = Map("key" -> "value")
+    val filteredData = TaskData(token = 0, values = Map("filtered" -> "value"))
+    val data = TaskData(token = 0, values = Map("key" -> "value"))
     val filteredFilter = new FilteredFeeder(mockFeeder,
-      ((data: Map[String, Any]) => data.contains("key")) && ((data: Map[String, Any]) => data("key") == "value"))
+      ((data: TaskData) => data.values.contains("key")) && ((data: TaskData) => data.values("key") == "value"))
 
     when(mockFeeder.peek()).thenReturn(Some(filteredData), Some(data))
     when(mockFeeder.next()).thenReturn(Some(data))

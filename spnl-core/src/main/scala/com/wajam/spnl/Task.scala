@@ -28,11 +28,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
   @volatile
   var currentRate: Double = 0.0
 
-  private var currentAttempts: Map[String, Attempt] = Map()
-
-  private def dataToken(data: Map[String, Any]): String = {
-    data.getOrElse("token", "").asInstanceOf[String]
-  }
+  private var currentAttempts: Map[Long, Attempt] = Map()
 
   val name = feeder.name
 
@@ -50,11 +46,11 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
     TaskActor ! Kill
   }
 
-  def tock(data: Map[String, Any]) {
+  def tock(data: TaskData) {
     TaskActor ! Tock(data)
   }
 
-  def fail(data: Map[String, Any], e: Exception) {
+  def fail(data: TaskData, e: Exception) {
     TaskActor ! Error(data, e)
   }
 
@@ -69,9 +65,9 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
 
   private object Wait
 
-  private case class Tock(data: Map[String, Any])
+  private case class Tock(data: TaskData)
 
-  private case class Error(data: Map[String, Any], e: Exception)
+  private case class Error(data: TaskData, e: Exception)
 
   /**
    * Attempts are used to call the Action logic.
@@ -80,9 +76,12 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
    * after a randomized delay.
    * @param data
    */
-  private class Attempt(val data: Map[String, Any]) {
-    private var errorCount = 0
+  private class Attempt(val data: TaskData) {
+    // At this step data.retryCount must be 0, since this is the first attempt.
+    assert(data.retryCount == 0)
+
     private var retryCount = 0
+    private var errorCount = 0
     private var lastAttemptTime = currentTime
     private var lastErrorTime = 0L
 
@@ -106,9 +105,9 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
     var nextRetryTime  = 0L
 
     // This formula is expected to be used when the servers restart or shut down.
-    // The idea is to let the server boot for a few seconds, and the spread all the attempts over a larger random
-    // range. If the server is down for a longer period of time, the attempts are exponentionally less frequent, and
-    // will not generate unecessary traffic.
+    // The idea is to let the server boot for a few seconds, and then spread all the attempts over a larger random
+    // range. If the server is down for a longer period of time, the attempts are exponentially less frequent, and
+    // will not generate unnecessary traffic.
     // Here's a sample of the data it will generate at each attempt retry:
     // [6,11], [7,12], [9,14], [13,18], [21,26], [37,42], [69,74], [133, 138], [261, 266]
     def updateUsingScatteredRandom {
@@ -146,8 +145,8 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
 
       lastAttemptTime = currentTime
 
-      info("Retry {} of task {} ({})", retryCount, name, dataToken(data))
-      action.call(Task.this, data)
+      info("Retry {} of task {} ({})", retryCount, name, data.token)
+      action.call(Task.this, data.copy(retryCount = retryCount))
     }
 
     def done() {
@@ -188,7 +187,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
                 feeder.peek() match {
                   case Some(data) => {
                     try {
-                      val token = dataToken(data)
+                      val token = data.token
                       if (!currentAttempts.contains(token)) {
                         currentAttempts += (token -> new Attempt(data))
                         feeder.next()
@@ -223,7 +222,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
           }
           case Tock(data) => {
             try {
-              val token = dataToken(data)
+              val token = data.token
               trace("Task {} ({}) finished", name, token)
               currentAttempts(token).done()
               currentAttempts -= token
@@ -231,7 +230,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
               feeder.ack(data)
             } catch {
               case e: Exception =>
-                error("Task {} ({}) error on Tock: {}", name, dataToken(data), e)
+                error("Task {} ({}) error on Tock: {}", name, data.token, e)
             }
           }
           case Error(data, e) => {
@@ -239,7 +238,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
               handleError(data, e)
             } catch {
               case e: Exception =>
-                error("Task {} ({}) error on Error: {}", name, dataToken(data), e)
+                error("Task {} ({}) error on Error: {}", name, data.token, e)
             }
           }
           case Wait => {
@@ -254,8 +253,8 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
       }
     }
 
-    private def handleError(data: Map[String, Any], e: Exception) {
-      val token = dataToken(data)
+    private def handleError(data: TaskData, e: Exception) {
+      val token = data.token
       val attempt = currentAttempts(token)
       attempt.onError(e)
 
@@ -275,7 +274,12 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
 object Task {
   private val PersistencePeriodInMS = 10000
   // When the Task fails and throws an Unavailable Exception,
-  // we assume waiting a short delay is requiered before
+  // we assume waiting a short delay is required before
   // the server will be available again
   private val ExpectedUnavailableTimeInMs = 5000
 }
+
+case class TaskData(
+  token: Long,
+  values: Map[String, Any] = Map(),
+  retryCount: Int = 0)
