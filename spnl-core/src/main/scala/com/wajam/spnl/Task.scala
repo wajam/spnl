@@ -28,7 +28,14 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
   @volatile
   var currentRate: Double = 0.0
 
-  private var currentAttempts: Map[Long, Attempt] = Map()
+  private var currentAttempts: Map[AttemptKey, Attempt] = Map()
+
+  private type AttemptKey = (Long, Long)
+
+  private def attemptKey(data: TaskData): AttemptKey = {
+    if(context.allowSameTokenConcurrency) (data.token, data.id)
+    else (data.token, 0.toLong)
+  }
 
   val name = feeder.name
 
@@ -187,9 +194,8 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
                 feeder.peek() match {
                   case Some(data) => {
                     try {
-                      val token = data.token
-                      if (!currentAttempts.contains(token)) {
-                        currentAttempts += (token -> new Attempt(data))
+                      if (!currentAttempts.contains(attemptKey(data))) {
+                        currentAttempts += (attemptKey(data) -> new Attempt(data))
                         feeder.next()
                         action.call(Task.this, data)
                         currentRate = if (isRetrying) context.throttleRate else context.normalRate
@@ -224,8 +230,8 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
             try {
               val token = data.token
               trace("Task {} ({}) finished", name, token)
-              currentAttempts(token).done()
-              currentAttempts -= token
+              currentAttempts(attemptKey(data)).done()
+              currentAttempts -= attemptKey(data)
 
               feeder.ack(data)
             } catch {
@@ -255,7 +261,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
 
     private def handleError(data: TaskData, e: Exception) {
       val token = data.token
-      val attempt = currentAttempts(token)
+      val attempt = currentAttempts(attemptKey(data))
       attempt.onError(e)
 
       info("Task {} ({}) got an error and will retry in {} ms (data={}): {}", name, token, attempt.nextRetryTime - currentTime, data, e)
@@ -281,5 +287,6 @@ object Task {
 
 case class TaskData(
   token: Long,
+  id: Long,
   values: Map[String, Any] = Map(),
   retryCount: Int = 0)

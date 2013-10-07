@@ -11,7 +11,8 @@ import com.wajam.spnl.TaskContext._
 case class TaskContext(var data: ContextData = Map(),
                        var normalRate: Double = 1,
                        var throttleRate: Double = 1,
-                       var maxConcurrent: Int = 5) {
+                       var maxConcurrent: Int = 5,
+                       allowSameTokenConcurrency: Boolean = false) {
 
 
   private implicit val jsonFormats = Serialization.formats(NoTypeHints)
