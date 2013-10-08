@@ -1,7 +1,8 @@
 package com.wajam.spnl
 
 import actors.Actor
-import com.wajam.nrv.{UnavailableException, Logging}
+import com.wajam.commons.Logging
+import com.wajam.nrv.UnavailableException
 import com.yammer.metrics.scala.Instrumented
 import feeder.Feeder
 import Task._

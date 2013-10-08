@@ -2,7 +2,7 @@ package com.wajam.spnl
 
 import com.wajam.nrv.service.{Resolver, ActionSupportOptions, ActionPath, Action}
 import com.wajam.nrv.data.{MValue, MString, InMessage}
-import com.wajam.nrv.Logging
+import com.wajam.commons.Logging
 import com.yammer.metrics.scala.Instrumented
 
 /**
