@@ -34,7 +34,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   }
 
   test("when a task is ticked, action is called when next value from feeder") {
-    when(mockedFeed.peek()).thenReturn(Some(Map("k" -> "val")))
+    when(mockedFeed.peek()).thenReturn(Some(TaskData(0, Map("k" -> "val"), 0)))
 
     task.tick(sync = true)
     verify(mockedFeed).peek()
@@ -43,7 +43,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   }
 
   test("task kill") {
-    when(mockedFeed.peek()).thenReturn(Some(Map("k" -> "val")))
+    when(mockedFeed.peek()).thenReturn(Some(TaskData(0, Map("k" -> "val"), 0)))
 
     task.kill()
     task.tick(sync = false)
@@ -57,15 +57,15 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   }
 
   test("when feeder returns no data or an exception, task should throttle") {
-    var feedNext: () => Option[Map[String, Any]] = null
-    when(mockedFeed.peek()).thenAnswer(new Answer[Option[Map[String, Any]]] {
+    var feedNext: () => Option[TaskData] = null
+    when(mockedFeed.peek()).thenAnswer(new Answer[Option[TaskData]] {
       def answer(invocation: InvocationOnMock) = feedNext()
     })
 
     task.context.normalRate should be > task.context.throttleRate
 
     // feeder returns data
-    feedNext = () => Some(Map("token" -> "0"))
+    feedNext = () => Some(TaskData(0))
     task.tick(sync = true)
     assert(!task.isThrottling)
 
@@ -75,7 +75,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     assert(task.isThrottling)
 
     // feeder returns data
-    feedNext = () => Some(Map("token" -> "1"))
+    feedNext = () => Some(TaskData(1))
     task.tick(sync = true)
     assert(!task.isThrottling)
 
@@ -86,9 +86,9 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   }
 
   test("when feeder gives tokens, should not process two tasks with same token") {
-    val data = Map("token" -> "asdf")
-    val feedNext: () => Option[Map[String, Any]] = () => Some(data)
-    when(mockedFeed.peek()).thenAnswer(new Answer[Option[Map[String, Any]]] {
+    val data = TaskData(123)
+    val feedNext: () => Option[TaskData] = () => Some(data)
+    when(mockedFeed.peek()).thenAnswer(new Answer[Option[TaskData]] {
       def answer(invocation: InvocationOnMock) = feedNext()
     })
 
@@ -106,9 +106,9 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   }
 
   test("should not process more than max concurrent process") {
-    var data = Map("token" -> "0")
-    val feedNext: () => Option[Map[String, Any]] = () => Some(data)
-    when(mockedFeed.peek()).thenAnswer(new Answer[Option[Map[String, Any]]] {
+    var data = TaskData(0)
+    val feedNext: () => Option[TaskData] = () => Some(data)
+    when(mockedFeed.peek()).thenAnswer(new Answer[Option[TaskData]] {
       def answer(invocation: InvocationOnMock) = feedNext()
     })
 
@@ -121,7 +121,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     verifyZeroInteractions(mockedAction)
 
     // First tick
-    data = Map("token" -> "1")
+    data = TaskData(1)
     task.tick(sync = true)
     concurrentCounter.count should be(1)
     verify(mockedFeed, times(1)).peek()
@@ -129,7 +129,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     verify(mockedAction, times(1)).call(same(task), anyObject())
 
     // Second tick
-    data = Map("token" -> "2")
+    data = TaskData(2)
     task.tick(sync = true)
     concurrentCounter.count should be(2)
     verify(mockedFeed, times(2)).peek()
@@ -137,17 +137,17 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     verify(mockedAction, times(2)).call(same(task), anyObject())
 
     // No more concurrent process untill tock
-    data = Map("token" -> "3")
+    data = TaskData(3)
     task.tick(sync = true)
-    data = Map("token" -> "4")
+    data = TaskData(4)
     task.tick(sync = true)
     concurrentCounter.count should be(2)
     verifyNoMoreInteractions(mockedFeed)
     verify(mockedAction, times(2)).call(same(task), anyObject())
 
-    task.tock(Map("token" -> "1"))
-    task.tock(Map("token" -> "2"))
-    data = Map("token" -> "5")
+    task.tock(TaskData(1))
+    task.tock(TaskData(2))
+    data = TaskData(5)
     task.tick(sync = true)
     concurrentCounter.count should be(1)
     verify(mockedFeed, times(2)).ack(anyObject())
@@ -155,14 +155,14 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     verify(mockedFeed, times(3)).next()
     verify(mockedAction, times(3)).call(same(task), anyObject())
 
-    data = Map("token" -> "6")
+    data = TaskData(6)
     task.tick(sync = true)
     concurrentCounter.count should be(2)
     verify(mockedFeed, times(4)).peek()
     verify(mockedFeed, times(4)).next()
     verify(mockedAction, times(4)).call(same(task), anyObject())
 
-    data = Map("token" -> "7")
+    data = TaskData(7)
     task.tick(sync = true)
     concurrentCounter.count should be(2)
     verifyNoMoreInteractions(mockedFeed)
@@ -170,7 +170,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   }
 
   def throttleTest(exceptionGenerator: () => Exception, WaitTimeGenerator: Int => Long) {
-    val data = Map("token" -> "0")
+    val data = TaskData(0)
     when(mockedFeed.peek()).thenReturn(Some(data))
 
     // These metrics track the number of retry attempts (attempts that throw exceptions).
@@ -202,7 +202,9 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
       task.currentRate should be(taskContext.throttleRate)
       verify(mockedFeed, times(i * 2)).peek()
       verify(mockedFeed, times(1)).next()
-      verify(mockedAction, times(i)).call(same(task), same(data))
+
+      for (j <- 1 to i)
+        verify(mockedAction).call(task, data.copy(retryCount = j - 1))
 
       task.advanceTime(WaitTimeGenerator(i)) // consider worst random case
 
@@ -210,7 +212,10 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
       task.tick(sync = true)
       verify(mockedFeed, times(1 + i * 2)).peek()
       verify(mockedFeed, times(1)).next()
-      verify(mockedAction, times(i + 1)).call(same(task), same(data))
+
+      for (j <- 1 to i)
+        verify(mockedAction).call(task, data.copy(retryCount = j))
+
       retryCounter.count should be(50 + initialOffset + i)
       globalCounter.count should be(100 + initialGlobalOffset + i)
     }
@@ -223,7 +228,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     globalCounter.count should be(100 + initialGlobalOffset)
     verify(mockedFeed, times(2 + failCount * 2)).peek()
     verify(mockedFeed, times(2)).next()
-    verify(mockedAction, times(failCount + 2)).call(same(task), same(data))
+    verify(mockedAction).call(task, data.copy(retryCount = failCount))
   }
 
   test("Should throttle and retry when generic errors occur") {

@@ -2,6 +2,7 @@ package com.wajam.spnl.feeder
 
 import collection.immutable.Queue
 import com.yammer.metrics.scala.Instrumented
+import com.wajam.spnl.TaskData
 
 /**
  * Feeder which uses a cache to store data
@@ -16,7 +17,7 @@ trait CachedDataFeeder extends Feeder with Instrumented {
 
   def name: String
 
-  private var cache: Queue[Map[String, Any]] = Queue()
+  private var cache: Queue[TaskData] = Queue()
 
   def peek() = {
     if (cache.isEmpty) {
@@ -38,7 +39,7 @@ trait CachedDataFeeder extends Feeder with Instrumented {
     }
   }
 
-  def loadMore(): Iterable[Map[String, Any]]
+  def loadMore(): Iterable[TaskData]
 
   private def loadCache() {
     val records = loadMoreTimer.time {

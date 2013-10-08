@@ -8,7 +8,7 @@ import com.wajam.spnl.TaskContext._
 /**
  * Task running context
  */
-case class TaskContext(var data:Map[String, Any] = Map[String, Any](),
+case class TaskContext(var data: ContextData = Map(),
                        var normalRate: Double = 1,
                        var throttleRate: Double = 1,
                        var maxConcurrent: Int = 5) {
@@ -30,7 +30,7 @@ case class TaskContext(var data:Map[String, Any] = Map[String, Any](),
   def updateFromJson(json: String) {
     val values = jsonCodec.decode(json.getBytes, Encoding).asInstanceOf[JObject].values
 
-    data = values("data").asInstanceOf[Map[String, Any]]
+    data = values("data").asInstanceOf[ContextData]
     values.get("normal_rate").map(v => normalRate = v.asInstanceOf[Double])
     values.get("throttle_rate").map(v => throttleRate = v.asInstanceOf[Double])
     values.get("max_concurrent").map(v => maxConcurrent = v.asInstanceOf[BigInt].toInt)
@@ -40,4 +40,6 @@ case class TaskContext(var data:Map[String, Any] = Map[String, Any](),
 object TaskContext {
   private val Encoding = "UTF-8"
   private val jsonCodec = new JsonCodec()
+
+  type ContextData = Map[String, Any]
 }

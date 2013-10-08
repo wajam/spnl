@@ -1,6 +1,6 @@
 package com.wajam.spnl.feeder
 
-import com.wajam.spnl.TaskContext
+import com.wajam.spnl.{TaskData, TaskContext}
 import scala.language.implicitConversions
 
 /**
@@ -11,17 +11,17 @@ trait Feeder {
 
   def init(context: TaskContext)
 
-  def peek(): Option[Map[String, Any]]
+  def peek(): Option[TaskData]
 
-  def next(): Option[Map[String, Any]]
+  def next(): Option[TaskData]
 
-  def ack(data: Map[String, Any])
+  def ack(data: TaskData)
 
   def kill()
 }
 
 object Feeder {
-  type FeederPredicate = Map[String,Any] => Boolean
+  type FeederPredicate = TaskData => Boolean
 
   implicit def predicateToFeederFilter(predicate: FeederPredicate): FeederFilter = FeederFilter(predicate)
   implicit def feederFilterToPredicate(filter: FeederFilter): FeederPredicate = filter.predicate
