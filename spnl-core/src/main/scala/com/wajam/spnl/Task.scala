@@ -293,7 +293,7 @@ object RetryWatcher {
 
   var retryCounters = Map[MetricName, Counter]()
 
-  def max = retryCounters.maxBy(_._2.count)._2.count
+  def max = retryCounters.valuesIterator.maxBy(_.count).count
 
   object RetryMetricsListener extends MetricsRegistryListener {
 
