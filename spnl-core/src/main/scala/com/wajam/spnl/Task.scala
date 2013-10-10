@@ -7,7 +7,7 @@ import com.yammer.metrics.scala.Instrumented
 import feeder.Feeder
 import Task._
 import com.wajam.commons.CurrentTime
-import com.yammer.metrics.core.{Counter, Metric, MetricName, MetricsRegistryListener}
+import com.yammer.metrics.scala.Counter
 
 /**
  * Task taking data from a feeder and sending to remote action
@@ -26,12 +26,6 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
   private lazy val concurrentCounter = metrics.counter("concurrent-count", name)
   private lazy val processedCounter = metrics.counter("processed-count", name)
 
-  metricsRegistry.addListener(RetryWatcher.RetryMetricsListener)
-
-  private val maxRetryCounter = metrics.gauge("max-retry-count") {
-    RetryWatcher.max
-  }
-
   @volatile
   var currentRate: Double = 0.0
 
@@ -40,6 +34,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
   val name = feeder.name
 
   def start() {
+    TaskRetryCounterWatcher.watch(retryCounter)
 
     // Make sure currentRate is synced with TaskContext
     currentRate = context.normalRate
@@ -252,6 +247,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
           case Kill => {
             info("Task {} stopped", name)
             currentAttempts.values.foreach(_.done())
+            TaskRetryCounterWatcher.unWatch(retryCounter)
             exit()
           }
         }
@@ -289,30 +285,19 @@ case class TaskData(
   values: Map[String, Any] = Map(),
   retryCount: Int = 0)
 
-object RetryWatcher {
+object TaskRetryCounterWatcher extends Instrumented {
 
-  var retryCounters = Map[MetricName, Counter]()
+  private var retryCounters = Set[Counter]()
 
-  def max = retryCounters.valuesIterator.maxBy(_.count).count
+  private val maxRetryCounter = metrics.gauge("max-retry-count") {
+    retryCounters.maxBy(_.count).count
+  }
 
-  object RetryMetricsListener extends MetricsRegistryListener {
+  def watch(counter: Counter): Unit = synchronized {
+    retryCounters += counter
+  }
 
-    def onMetricAdded(name: MetricName, metric: Metric) {
-      metric match {
-        case metric: Counter if name.getName == "retry-count" =>
-          synchronized {
-            retryCounters += (name -> metric)
-          }
-        case _ =>
-      }
-    }
-
-    def onMetricRemoved(name: MetricName) {
-      if(name.getName == "retry-count") {
-        synchronized {
-          retryCounters -= name
-        }
-      }
-    }
+  def unWatch(counter: Counter): Unit = synchronized {
+    retryCounters -= counter
   }
 }
