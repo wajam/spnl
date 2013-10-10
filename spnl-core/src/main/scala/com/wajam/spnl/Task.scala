@@ -36,7 +36,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
 
   private def attemptKey(data: TaskData): AttemptKey = {
     if(context.allowSameTokenConcurrency) (data.token, data.id)
-    else (data.token, 0.toLong)
+    else (data.token, 0L)
   }
 
   val name = feeder.name
