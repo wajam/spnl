@@ -7,6 +7,7 @@ import com.yammer.metrics.scala.Instrumented
 import feeder.Feeder
 import Task._
 import com.wajam.commons.CurrentTime
+import com.yammer.metrics.scala.Counter
 
 /**
  * Task taking data from a feeder and sending to remote action
@@ -21,7 +22,6 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
   // Distribute in time persistence between tasks
   private var lastPersistence: Long = System.currentTimeMillis() - util.Random.nextInt(PersistencePeriodInMS)
   private lazy val tickMeter = metrics.meter("tick", "ticks", name)
-  private lazy val globalRetryCounter = metrics.counter("retry-count")
   private lazy val retryCounter = metrics.counter("retry-count", name)
   private lazy val concurrentCounter = metrics.counter("concurrent-count", name)
   private lazy val processedCounter = metrics.counter("processed-count", name)
@@ -34,6 +34,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
   val name = feeder.name
 
   def start() {
+    TaskRetryCounterWatcher.watch(retryCounter)
 
     // Make sure currentRate is synced with TaskContext
     currentRate = context.normalRate
@@ -140,7 +141,6 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
     def mustRetryNow = mustRetry && nextRetryTime < currentTime
 
     def retryNow() {
-      globalRetryCounter += 1
       retryCounter += 1
       retryCount += 1
 
@@ -151,7 +151,6 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
     }
 
     def done() {
-      globalRetryCounter -= retryCount
       retryCounter -= retryCount
       retryCount = 0
       errorCount = 0
@@ -248,6 +247,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
           case Kill => {
             info("Task {} stopped", name)
             currentAttempts.values.foreach(_.done())
+            TaskRetryCounterWatcher.unWatch(retryCounter)
             exit()
           }
         }
@@ -284,3 +284,20 @@ case class TaskData(
   token: Long,
   values: Map[String, Any] = Map(),
   retryCount: Int = 0)
+
+object TaskRetryCounterWatcher extends Instrumented {
+
+  private var retryCounters = Set[Counter]()
+
+  private val maxRetryCounter = metrics.gauge("max-retry-count") {
+    retryCounters.maxBy(_.count).count
+  }
+
+  def watch(counter: Counter): Unit = synchronized {
+    retryCounters += counter
+  }
+
+  def unWatch(counter: Counter): Unit = synchronized {
+    retryCounters -= counter
+  }
+}
