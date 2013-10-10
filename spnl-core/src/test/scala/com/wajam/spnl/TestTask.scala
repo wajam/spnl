@@ -49,7 +49,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     mockedAction = mock[TaskAction]
     when(mockedFeed.name).thenReturn("test_task")
 
-    task = new Task(mockedFeed, mockedAction, context = taskContext)(idGenerator)
+    task = new Task(mockedFeed, mockedAction, context = taskContext)
       with ControlableCurrentTime
     task.start()
     reset(mockedFeed) // Reset interaction recorded during start

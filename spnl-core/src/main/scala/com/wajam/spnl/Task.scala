@@ -34,7 +34,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
 
   private type AttemptKey = (Long, Long)
 
-  private def attemptKey(data: TaskData): AttemptKey = {
+  private def attemptKeyFor(data: TaskData): AttemptKey = {
     if(context.allowSameTokenConcurrency) (data.token, data.id)
     else (data.token, 0L)
   }
@@ -74,20 +74,20 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
 
   private object Wait
 
-  private case class Tock(data: TaskData)
+  private case class Tock(taskData: TaskData)
 
-  private case class Error(data: TaskData, e: Exception)
+  private case class Error(taskData: TaskData, e: Exception)
 
   /**
    * Attempts are used to call the Action logic.
    * When an Attempt fails to execute its Action (error or timeout),
    * the Attempt will stay stored and will retry to execute its Action
    * after a randomized delay.
-   * @param data
+   * @param taskData
    */
-  private class Attempt(val data: TaskData) {
+  private class Attempt(val taskData: TaskData) {
     // At this step data.retryCount must be 0, since this is the first attempt.
-    assert(data.retryCount == 0)
+    assert(taskData.retryCount == 0)
 
     private var retryCount = 0
     private var errorCount = 0
@@ -154,8 +154,8 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
 
       lastAttemptTime = currentTime
 
-      info("Retry {} of task {} ({})", retryCount, name, data.token)
-      action.call(Task.this, data.copy(retryCount = retryCount))
+      info("Retry {} of task {} ({})", retryCount, name, taskData.token)
+      action.call(Task.this, taskData.copy(retryCount = retryCount))
     }
 
     def done() {
@@ -185,7 +185,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
                     attempt.retryNow()
                   } catch {
                     case e: Exception =>
-                      handleError(attempt.data, e)
+                      handleError(attempt.taskData, e)
                   }
                 }
                 case None => // No attempt to retry at this time
@@ -197,8 +197,9 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
                   case Some(feederData) => {
                     val taskData = TaskData(feederData)
                     try {
-                      if (!currentAttempts.contains(attemptKey(taskData))) {
-                        currentAttempts += (attemptKey(taskData) -> new Attempt(taskData))
+                      val attemptKey = attemptKeyFor(taskData)
+                      if (!currentAttempts.contains(attemptKey)) {
+                        currentAttempts += (attemptKey -> new Attempt(taskData))
                         feeder.next()
                         action.call(Task.this, taskData)
                         currentRate = if (isRetrying) context.throttleRate else context.normalRate
@@ -229,25 +230,26 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
 
             }
           }
-          case Tock(data) => {
+          case Tock(taskData) => {
             try {
-              val token = data.token
+              val token = taskData.token
+              val attemptKey = attemptKeyFor(taskData)
               trace("Task {} ({}) finished", name, token)
-              currentAttempts(attemptKey(data)).done()
-              currentAttempts -= attemptKey(data)
+              currentAttempts(attemptKey).done()
+              currentAttempts -= attemptKey
 
-              feeder.ack(data.toMap)
+              feeder.ack(taskData.toFeederData)
             } catch {
               case e: Exception =>
-                error("Task {} ({}) error on Tock: {}", name, data.token, e)
+                error("Task {} ({}) error on Tock: {}", name, taskData.token, e)
             }
           }
-          case Error(data, e) => {
+          case Error(taskData, e) => {
             try {
-              handleError(data, e)
+              handleError(taskData, e)
             } catch {
               case e: Exception =>
-                error("Task {} ({}) error on Error: {}", name, data.token, e)
+                error("Task {} ({}) error on Error: {}", name, taskData.token, e)
             }
           }
           case Wait => {
@@ -262,12 +264,12 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
       }
     }
 
-    private def handleError(data: TaskData, e: Exception) {
-      val token = data.token
-      val attempt = currentAttempts(attemptKey(data))
+    private def handleError(taskData: TaskData, e: Exception) {
+      val token = taskData.token
+      val attempt = currentAttempts(attemptKeyFor(taskData))
       attempt.onError(e)
 
-      info("Task {} ({}) got an error and will retry in {} ms (data={}): {}", name, token, attempt.nextRetryTime - currentTime, data, e)
+      info("Task {} ({}) got an error and will retry in {} ms (data={}): {}", name, token, attempt.nextRetryTime - currentTime, taskData, e)
     }
   }
 
@@ -294,7 +296,7 @@ case class TaskData(
   values: Map[String, Any] = Map(),
   retryCount: Int = 0) {
 
-  def toMap: Map[String, Any] = {
+  def toFeederData: FeederData = {
     this.values + ("token" -> this.token)
   }
 }
