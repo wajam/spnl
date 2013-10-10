@@ -5,7 +5,9 @@ import com.wajam.nrv.{UnavailableException, Logging}
 import com.yammer.metrics.scala.Instrumented
 import feeder.Feeder
 import Task._
-import com.wajam.commons.CurrentTime
+import com.wajam.commons.{IdGenerator, CurrentTime}
+import com.wajam.nrv.utils.TimestampIdGenerator
+import com.wajam.spnl.feeder.Feeder.FeederData
 
 /**
  * Task taking data from a feeder and sending to remote action
@@ -14,7 +16,7 @@ import com.wajam.commons.CurrentTime
  * @param action Action to call with new data
  */
 class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersistence = NoTaskPersistence,
-           var context: TaskContext = new TaskContext)
+           var context: TaskContext = new TaskContext)(implicit val idGenerator: IdGenerator[Long] = new TimestampIdGenerator)
   extends Logging with Instrumented with CurrentTime {
 
   // Distribute in time persistence between tasks
@@ -192,17 +194,18 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
               // Attempt processing data if have enough concurrent slot
               if (currentAttempts.size < context.maxConcurrent) {
                 feeder.peek() match {
-                  case Some(data) => {
+                  case Some(feederData) => {
+                    val taskData = TaskData(feederData)
                     try {
-                      if (!currentAttempts.contains(attemptKey(data))) {
-                        currentAttempts += (attemptKey(data) -> new Attempt(data))
+                      if (!currentAttempts.contains(attemptKey(taskData))) {
+                        currentAttempts += (attemptKey(taskData) -> new Attempt(taskData))
                         feeder.next()
-                        action.call(Task.this, data)
+                        action.call(Task.this, taskData)
                         currentRate = if (isRetrying) context.throttleRate else context.normalRate
                       }
                     } catch {
                       case e: Exception =>
-                        handleError(data, e)
+                        handleError(taskData, e)
                     }
                   }
                   case None => {
@@ -233,7 +236,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
               currentAttempts(attemptKey(data)).done()
               currentAttempts -= attemptKey(data)
 
-              feeder.ack(data)
+              feeder.ack(data.toMap)
             } catch {
               case e: Exception =>
                 error("Task {} ({}) error on Tock: {}", name, data.token, e)
@@ -289,4 +292,20 @@ case class TaskData(
   token: Long,
   id: Long,
   values: Map[String, Any] = Map(),
-  retryCount: Int = 0)
+  retryCount: Int = 0) {
+
+  def toMap: Map[String, Any] = {
+    this.values + ("token" -> this.token)
+  }
+}
+
+object TaskData {
+
+  def apply(token: Long, data: Map[String, Any])(implicit idGenerator: IdGenerator[Long]): TaskData = {
+    new TaskData(token, idGenerator.nextId, data - "token")
+  }
+
+  def apply(feederData: FeederData)(implicit idGenerator: IdGenerator[Long]): TaskData = {
+    new TaskData(feederData("token").toString.toLong, idGenerator.nextId, feederData - "token")
+  }
+}
