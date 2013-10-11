@@ -2,6 +2,7 @@ package com.wajam.spnl.feeder
 
 import com.wajam.spnl.{TaskData, TaskContext}
 import org.scalatest.FunSuite
+import com.wajam.spnl.feeder.Feeder.FeederData
 
 /**
  * User: Alexandre Bergeron <alex@wajam.com>
@@ -10,8 +11,8 @@ import org.scalatest.FunSuite
  */
 class TestCachedDataFeeder extends FunSuite {
 
-  val elem1 = TaskData(token = 0, values = Map("a" -> "b"))
-  val elem2 = TaskData(token = 0, values = Map("a" -> "c"))
+  val elem1 = Map("token" -> 0L, "a" -> "b")
+  val elem2 = Map("token" -> 0L, "a" -> "c")
 
   class CachedDataFeederImpl extends CachedDataFeeder {
     val name = "test_name"
@@ -28,7 +29,7 @@ class TestCachedDataFeeder extends FunSuite {
 
     def kill() {}
 
-    def ack(data: TaskData) {}
+    def ack(data: FeederData) {}
   }
 
   test("should peek and access next element") {
