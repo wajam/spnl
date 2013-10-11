@@ -22,9 +22,6 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   var taskContext: TaskContext = null
   var task: Task with ControlableCurrentTime = null
 
-  val feederData = Map("token" -> 1L, "k" -> "val")
-  var taskData: TaskData = _
-
   implicit var idGenerator: DummyIdGenerator = _
 
   class DummyIdGenerator extends IdGenerator[Long] {
@@ -39,10 +36,10 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     }
   }
 
+  def feederData(token: Long = 1L, value: String = "val") = Map("token" -> token, "k" -> value)
+
   before {
     idGenerator = new DummyIdGenerator
-
-    taskData = TaskData(feederData)
 
     taskContext = new TaskContext(normalRate = 10, throttleRate = 1, maxConcurrent = 5)
     mockedFeed = mock[Feeder]
@@ -56,7 +53,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   }
 
   test("when a task is ticked, action is called when next value from feeder") {
-    when(mockedFeed.peek()).thenReturn(Some(feederData))
+    when(mockedFeed.peek()).thenReturn(Some(feederData()))
 
     task.tick(sync = true)
     verify(mockedFeed).peek()
@@ -65,7 +62,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   }
 
   test("task kill") {
-    when(mockedFeed.peek()).thenReturn(Some(feederData))
+    when(mockedFeed.peek()).thenReturn(Some(feederData()))
 
     task.kill()
     task.tick(sync = false)
@@ -87,7 +84,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     task.context.normalRate should be > task.context.throttleRate
 
     // feeder returns data
-    feedNext = () => Some(feederData)
+    feedNext = () => Some(feederData())
     task.tick(sync = true)
     assert(!task.isThrottling)
 
@@ -97,7 +94,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     assert(task.isThrottling)
 
     // feeder returns data
-    feedNext = () => Some(feederData + ("token" -> 2L))
+    feedNext = () => Some(feederData(2L))
     task.tick(sync = true)
     assert(!task.isThrottling)
 
@@ -108,7 +105,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   }
 
   test("should not process more than max concurrent process") {
-    var data = feederData
+    var data = feederData()
     val feedNext: () => Option[FeederData] = () => Some(data)
     when(mockedFeed.peek()).thenAnswer(new Answer[Option[FeederData]] {
       def answer(invocation: InvocationOnMock) = feedNext()
@@ -123,7 +120,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     verifyZeroInteractions(mockedAction)
 
     // First tick
-    data = feederData + ("token" -> 1L)
+    data = feederData()
     task.tick(sync = true)
     concurrentCounter.count should be(1)
     verify(mockedFeed, times(1)).peek()
@@ -131,7 +128,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     verify(mockedAction, times(1)).call(same(task), anyObject())
 
     // Second tick
-    data = feederData + ("token" -> 2L)
+    data = feederData(2L)
     task.tick(sync = true)
     concurrentCounter.count should be(2)
     verify(mockedFeed, times(2)).peek()
@@ -139,9 +136,9 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     verify(mockedAction, times(2)).call(same(task), anyObject())
 
     // No more concurrent process untill tock
-    data = feederData + ("token" -> 3L)
+    data = feederData(3L)
     task.tick(sync = true)
-    data = feederData + ("token" -> 4L)
+    data = feederData(4L)
     task.tick(sync = true)
     concurrentCounter.count should be(2)
     verifyNoMoreInteractions(mockedFeed)
@@ -149,7 +146,7 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
 
     task.tock(TaskData(1, 0))
     task.tock(TaskData(2, 0))
-    data = feederData + ("token" -> 5L)
+    data = feederData(5L)
     task.tick(sync = true)
     concurrentCounter.count should be(1)
     verify(mockedFeed, times(2)).ack(anyObject())
@@ -157,14 +154,14 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     verify(mockedFeed, times(3)).next()
     verify(mockedAction, times(3)).call(same(task), anyObject())
 
-    data = feederData + ("token" -> 6L)
+    data = feederData(6L)
     task.tick(sync = true)
     concurrentCounter.count should be(2)
     verify(mockedFeed, times(4)).peek()
     verify(mockedFeed, times(4)).next()
     verify(mockedAction, times(4)).call(same(task), anyObject())
 
-    data = feederData + ("token" -> 7L)
+    data = feederData(7L)
     task.tick(sync = true)
     concurrentCounter.count should be(2)
     verifyNoMoreInteractions(mockedFeed)
@@ -172,7 +169,9 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   }
 
   def throttleTest(exceptionGenerator: () => Exception, WaitTimeGenerator: Int => Long) {
-    when(mockedFeed.peek()).thenReturn(Some(feederData))
+    when(mockedFeed.peek()).thenReturn(Some(feederData()))
+
+    val taskData = TaskData(feederData())
 
     // These metrics track the number of retry attempts (attempts that throw exceptions).
     // Setup counters initial value. They will be validated at the end to ensure they are reset to that value
@@ -242,7 +241,9 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   }
 
   test("Should not allow concurrent tasks for same token by default") {
-    when(mockedFeed.peek()).thenReturn(Some(feederData))
+    when(mockedFeed.peek()).thenReturn(Some(feederData()))
+
+    val taskData = TaskData(feederData())
 
     task.tick(sync = true)
     verify(mockedAction, times(1)).call(same(task), anyObject())
@@ -263,11 +264,13 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
   test("Should allow concurrent tasks for same token if allowSameTokenConcurrency is set to true") {
     taskContext = taskContext.copy(allowSameTokenConcurrency = true)
 
+    val taskData = TaskData(feederData())
+
     task = new Task(mockedFeed, mockedAction, context = taskContext)(idGenerator)
       with ControlableCurrentTime
     task.start()
 
-    when(mockedFeed.peek()).thenReturn(Some(feederData))
+    when(mockedFeed.peek()).thenReturn(Some(feederData()))
 
     task.tick(sync = true)
     verify(mockedAction, times(1)).call(same(task), anyObject())
