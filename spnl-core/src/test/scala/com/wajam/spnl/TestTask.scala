@@ -177,14 +177,10 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     // Setup counters initial value. They will be validated at the end to ensure they are reset to that value
     // and not to zero.
     val retryCounter = new MetricsGroup(task.getClass).counter("retry-count", task.name)
-    val globalCounter = new MetricsGroup(task.getClass).counter("retry-count")
     val initialOffset = retryCounter.count
-    val initialGlobalOffset = globalCounter.count
 
     retryCounter += 50
-    globalCounter += 100
     retryCounter.count should be(50 + initialOffset)
-    globalCounter.count should be(100 + initialGlobalOffset)
 
     task.currentRate should be(taskContext.normalRate)
 
@@ -217,7 +213,6 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
         verify(mockedAction).call(task, taskData.copy(retryCount = j))
 
       retryCounter.count should be(50 + initialOffset + i)
-      globalCounter.count should be(100 + initialGlobalOffset + i)
     }
 
     // Success!!!
@@ -225,7 +220,6 @@ class TestTask extends FunSuite with BeforeAndAfter with MockitoSugar {
     task.tick(sync = true)
     task.currentRate should be (taskContext.normalRate)
     retryCounter.count should be(50 + initialOffset)
-    globalCounter.count should be(100 + initialGlobalOffset)
     verify(mockedFeed, times(2 + failCount * 2)).peek()
     verify(mockedFeed, times(2)).next()
     verify(mockedAction).call(task, taskData.copy(retryCount = failCount))
