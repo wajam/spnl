@@ -19,7 +19,7 @@ import scala.util.Random
  * @param action Action to call with new data
  */
 class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersistence = NoTaskPersistence,
-           var context: TaskContext = new TaskContext)(implicit idGenerator: IdGenerator[Long] = new TimestampIdGenerator, random: Random = Random)
+           var context: TaskContext = new TaskContext, random: Random = Random)(implicit idGenerator: IdGenerator[Long] = new TimestampIdGenerator)
   extends Logging with Instrumented with CurrentTime {
 
   // Distribute in time persistence between tasks
