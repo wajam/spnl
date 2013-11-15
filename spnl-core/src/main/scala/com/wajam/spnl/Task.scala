@@ -10,6 +10,7 @@ import com.wajam.commons.{IdGenerator, CurrentTime}
 import com.wajam.nrv.utils.TimestampIdGenerator
 import com.wajam.spnl.feeder.Feeder.FeederData
 import com.yammer.metrics.scala.Counter
+import scala.util.Random
 
 /**
  * Task taking data from a feeder and sending to remote action
@@ -18,11 +19,11 @@ import com.yammer.metrics.scala.Counter
  * @param action Action to call with new data
  */
 class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersistence = NoTaskPersistence,
-           var context: TaskContext = new TaskContext)(implicit val idGenerator: IdGenerator[Long] = new TimestampIdGenerator)
+           var context: TaskContext = new TaskContext, random: Random = Random)(implicit idGenerator: IdGenerator[Long] = new TimestampIdGenerator)
   extends Logging with Instrumented with CurrentTime {
 
   // Distribute in time persistence between tasks
-  private var lastPersistence: Long = System.currentTimeMillis() - util.Random.nextInt(PersistencePeriodInMS)
+  private var lastPersistence: Long = System.currentTimeMillis() - random.nextInt(PersistencePeriodInMS)
   private lazy val tickMeter = metrics.meter("tick", "ticks", name)
   private lazy val retryCounter = metrics.counter("retry-count", name)
   private lazy val concurrentCounter = metrics.counter("concurrent-count", name)
@@ -123,10 +124,10 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
     // [6,11], [7,12], [9,14], [13,18], [21,26], [37,42], [69,74], [133, 138], [261, 266]
     def updateUsingScatteredRandom {
       nextRetryTime =
-        lastErrorTime +                                                    // Initial timestamp offset
-        ExpectedUnavailableTimeInMs +                                      // Baseline Reboot Time
-        (math.pow(2, retryCount) * (1000 / context.throttleRate) +         // Exponentially increasing factor
-        (ExpectedUnavailableTimeInMs * util.Random.nextFloat())).toLong    // Random factor to scatter attempts
+        lastErrorTime +                                               // Initial timestamp offset
+        ExpectedUnavailableTimeInMs +                                 // Baseline Reboot Time
+        (math.pow(2, retryCount) * (1000 / context.throttleRate) +    // Exponentially increasing factor
+        (ExpectedUnavailableTimeInMs * random.nextFloat())).toLong    // Random factor to scatter attempts
     }
 
     // This formula is expected to be used in all other cases.
@@ -140,9 +141,9 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
     // [1, 2.5], [2, 3.5], [4, 5.5], [8, 9.5], [16, 17.5], [32, 33.5], [64, 65.5], [128, 129.5], [256, 257.5]
     def updateUsingConsistentRandom {
       nextRetryTime =
-        lastErrorTime +                                              // initial timestamp offset
-        (math.pow(2, retryCount) * (1000 / context.throttleRate) +   // exponentially increasing factor
-        (1500 * util.Random.nextFloat())).toLong                     // slight random factor to spread traffic
+        lastErrorTime +                                             // initial timestamp offset
+        (math.pow(2, retryCount) * (1000 / context.throttleRate) +  // exponentially increasing factor
+        (1500 * random.nextFloat())).toLong                         // slight random factor to spread traffic
     }
 
     def mustRetry = errorCount > retryCount
