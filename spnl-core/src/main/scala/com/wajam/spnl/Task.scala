@@ -11,8 +11,6 @@ import com.wajam.nrv.utils.TimestampIdGenerator
 import com.wajam.spnl.feeder.Feeder.FeederData
 import com.yammer.metrics.scala.Counter
 import scala.util.Random
-import scala.Predef._
-import scala.Some
 
 /**
  * Task taking data from a feeder and sending to remote action
