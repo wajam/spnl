@@ -11,6 +11,7 @@ import com.wajam.nrv.utils.TimestampIdGenerator
 import com.wajam.spnl.feeder.Feeder.FeederData
 import com.yammer.metrics.scala.Counter
 import scala.util.Random
+import com.yammer.metrics.core.Gauge
 
 /**
  * Task taking data from a feeder and sending to remote action
@@ -28,6 +29,9 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
   private lazy val retryCounter = metrics.counter("retry-count", name)
   private lazy val concurrentCounter = metrics.counter("concurrent-count", name)
   private lazy val processedCounter = metrics.counter("processed-count", name)
+  private lazy val maxRetryGauge = metrics.gauge("max-retry-count", name) {
+    currentAttempts.values.map(_.taskData.retryCount).max
+  }
 
   @volatile
   var currentRate: Double = 0.0
@@ -44,7 +48,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
   val name = feeder.name
 
   def start() {
-    TaskRetryCounterWatcher.watch(retryCounter)
+    TaskRetryCounterWatcher.watch(maxRetryGauge)
 
     // Make sure currentRate is synced with TaskContext
     currentRate = context.normalRate
@@ -259,7 +263,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
           case Kill => {
             info("Task {} stopped", name)
             currentAttempts.values.foreach(_.done())
-            TaskRetryCounterWatcher.unWatch(retryCounter)
+            TaskRetryCounterWatcher.unWatch(maxRetryGauge)
             exit()
           }
         }
@@ -316,17 +320,17 @@ object TaskData {
 
 object TaskRetryCounterWatcher extends Instrumented {
 
-  private var retryCounters = Set[Counter]()
+  private var retryGauges = Set[Gauge[Int]]()
 
-  private val maxRetryCounter = metrics.gauge("max-retry-count") {
-    retryCounters.maxBy(_.count).count
+  private val globalMaxRetryCounter = metrics.gauge("max-retry-count") {
+    retryGauges.maxBy(_.value).value
   }
 
-  def watch(counter: Counter): Unit = synchronized {
-    retryCounters += counter
+  def watch(gauge: Gauge[Int]): Unit = synchronized {
+    retryGauges += gauge
   }
 
-  def unWatch(counter: Counter): Unit = synchronized {
-    retryCounters -= counter
+  def unWatch(gauge: Gauge[Int]): Unit = synchronized {
+    retryGauges -= gauge
   }
 }
