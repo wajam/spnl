@@ -30,7 +30,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
   private lazy val concurrentCounter = metrics.counter("concurrent-count", name)
   private lazy val processedCounter = metrics.counter("processed-count", name)
   private lazy val maxRetryGauge = metrics.gauge("max-retry-count", name) {
-    currentAttempts.values.map(_.taskData.retryCount).max
+    currentAttempts.values.map(_.getRetryCount).foldLeft(0)(math.max)
   }
 
   @volatile
@@ -174,6 +174,9 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
 
       currentRate = context.normalRate
     }
+
+    protected[Task] def getRetryCount = retryCount
+
   }
 
   private object TaskActor extends Actor {
