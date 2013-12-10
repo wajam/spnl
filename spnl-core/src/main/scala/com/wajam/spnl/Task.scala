@@ -11,6 +11,8 @@ import com.wajam.nrv.utils.TimestampIdGenerator
 import com.wajam.spnl.feeder.Feeder.FeederData
 import com.yammer.metrics.scala.Counter
 import scala.util.Random
+import scala.Predef._
+import scala.Some
 
 /**
  * Task taking data from a feeder and sending to remote action
@@ -44,7 +46,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
   val name = feeder.name
 
   def start() {
-    TaskRetryCounterWatcher.watch(retryCounter)
+    TaskRetryCounterWatcher.watch(retryCounter, concurrentCounter)
 
     // Make sure currentRate is synced with TaskContext
     currentRate = context.normalRate
@@ -316,14 +318,15 @@ object TaskData {
 
 object TaskRetryCounterWatcher extends Instrumented {
 
-  private var retryCounters = Set[Counter]()
+  private var retryCounters = Map[Counter, Counter]()
 
   private val maxRetryCounter = metrics.gauge("max-retry-count") {
-    retryCounters.maxBy(_.count).count
+    // Get the max concurrent retry actually running for the tasks
+    retryCounters.map({ case (retry, concurrency) => retry.count / concurrency.count }).max
   }
 
-  def watch(counter: Counter): Unit = synchronized {
-    retryCounters += counter
+  def watch(counter: Counter, concurrencyCounter: Counter): Unit = synchronized {
+    retryCounters += counter -> concurrencyCounter
   }
 
   def unWatch(counter: Counter): Unit = synchronized {
