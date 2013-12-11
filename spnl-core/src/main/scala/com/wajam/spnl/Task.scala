@@ -96,6 +96,7 @@ class Task(feeder: Feeder, val action: TaskAction, val persistence: TaskPersiste
     // At this step data.retryCount must be 0, since this is the first attempt.
     assert(taskData.retryCount == 0)
 
+    @volatile
     private var retryCount = 0
     private var errorCount = 0
     private var lastAttemptTime = currentTime
