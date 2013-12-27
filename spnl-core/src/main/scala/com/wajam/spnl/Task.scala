@@ -327,7 +327,7 @@ object TaskRetryCounterWatcher extends Instrumented {
   private var retryGauges = Set[Gauge[Int]]()
 
   private val globalMaxRetryCounter = metrics.gauge("max-retry-count") {
-    retryGauges.maxBy(_.value).value
+      retryGauges.foldLeft(0)((max, y) => math.max(max, y.value()))
   }
 
   def watch(gauge: Gauge[Int]): Unit = synchronized {
