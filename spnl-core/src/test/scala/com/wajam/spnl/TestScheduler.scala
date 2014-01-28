@@ -6,7 +6,7 @@ import org.junit.runner.RunWith
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
-import org.scalatest.matchers.ShouldMatchers._
+import org.scalatest.Matchers.{atLeast => _, _}
 import org.mockito.stubbing.Answer
 import org.mockito.invocation.InvocationOnMock
 

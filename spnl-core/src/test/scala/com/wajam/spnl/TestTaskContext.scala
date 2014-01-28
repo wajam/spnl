@@ -1,7 +1,7 @@
 package com.wajam.spnl
 
 import org.scalatest.FunSuite
-import org.scalatest.matchers.ShouldMatchers._
+import org.scalatest.Matchers._
 
 import net.liftweb.json.Diff
 import net.liftweb.json.JsonAST.JNothing

@@ -2,12 +2,12 @@ package com.wajam.spnl
 
 import feeder.Feeder
 import org.scalatest.FunSuite
-import org.scalatest.matchers.ShouldMatchers._
+import org.scalatest.Matchers._
 import org.scalatest.junit.JUnitRunner
 import org.junit.runner.RunWith
 import com.wajam.nrv.zookeeper.ZookeeperClient
 import org.scalatest.mock.MockitoSugar
-import com.wajam.nrv.service.{ServiceMember, Service, Action}
+import com.wajam.nrv.service.{ServiceMember, Service}
 import com.wajam.nrv.cluster.LocalNode
 import org.mockito.Mockito._
 

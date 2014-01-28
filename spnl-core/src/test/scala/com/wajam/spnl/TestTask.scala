@@ -10,7 +10,7 @@ import org.scalatest.{BeforeAndAfter, FunSuite}
 import org.mockito.stubbing.Answer
 import org.mockito.invocation.InvocationOnMock
 import com.yammer.metrics.scala.MetricsGroup
-import org.scalatest.matchers.ShouldMatchers._
+import org.scalatest.Matchers._
 import com.wajam.nrv.UnavailableException
 import com.wajam.commons.{IdGenerator, ControlableCurrentTime}
 import com.wajam.spnl.feeder.Feeder.FeederData
